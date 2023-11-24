@@ -1,0 +1,139 @@
+#!/usr/bin/env ansible-playbook
+- name: hcp
+  hosts: localhost
+  connection: local
+  vars_files:
+    - vars.yml
+    
+  tasks:
+
+    - name: "preflight | check for oc binary"
+      ansible.builtin.shell:
+        cmd: which oc
+      register: oc
+      changed_when: false
+      failed_when: oc.rc != 0 
+
+    - name: "preflight | check for hypershift binary"
+      ansible.builtin.shell:
+        cmd: which hypershift
+      register: hcp
+      changed_when: false
+      failed_when: hcp.rc != 0 
+
+    - name: "preflight | create deployment directory"
+      ansible.builtin.file:
+        state: directory
+        path: "{{ deployment_dir }}/{{ name }}"
+        mode: 0755
+
+    - name: "preflight | check for existence of {{ pull_secret }}"
+      ansible.builtin.stat:
+        path: "{{ pull_secret }}"
+      register: pullsecret
+
+    - name: "preflight | fail if {{ pull_secret }} is not found"
+      ansible.builtin.fail:
+        msg: "{{ pull_secret }} must exist"
+      when: pullsecret.stat.exists is not defined
+
+    - name: "preflight | check for {{ creds }} file"
+      ansible.builtin.stat:
+        path: "{{ creds }}"
+      register: creds
+      ignore_errors: true
+
+    - name: "preflight | check for cloud cred variables"
+      ansible.builtin.assert:
+        that:
+          - "lookup('env','AWS_REGION')"
+          - "lookup('env','AWS_SECRET_ACCESS_KEY')"
+          - "lookup('env','AWS_ACCESS_KEY_ID')"
+      register: envs
+      when: not creds.stat.exists
+
+    - name: "deploy | check if {{ name }} already exists"
+      kubernetes.core.k8s_info:
+        api_version: hypershift.openshift.io/v1beta1
+        kind: HostedCluster
+        namespace: clusters
+        name: "{{ name }}"
+      register: hc
+      changed_when: hc.resources |length > 0
+        
+    - name: "deploy | create hosted controlplane"
+      ansible.builtin.shell: >
+        #hypershift create cluster aws --name {{ name }} --additional-tags {{ tags }} --node-pool-replicas {{ replicas }} --instance-type {{ instance_type }} --infra-id {{ name }} --base-domain {{ domain }} --pull-secret {{ pull_secret }} --aws-creds {{ creds }} --region {{ region }} --release-image quay.io/openshift-release-dev/ocp-release:4.13.22-x86_64
+        hypershift create cluster aws 
+        --name {{ name }} 
+        --additional-tags {{ tags }} 
+        --node-pool-replicas {{ replicas }} 
+        --instance-type {{ instance_type }} 
+        --infra-id {{ name }} 
+        --base-domain {{ domain }} 
+        --pull-secret {{ pull_secret }} 
+        --aws-creds {{ creds }} 
+        --region {{ region }} 
+        --release-image quay.io/openshift-release-dev/ocp-release:{{ image }}-x86_64
+      args:
+        executable: /bin/bash
+      when: create and not hc.changed and not destroy
+      register: cluster_create
+
+    - name: "deploy | wait for hosted cluster to be created | this can take a while"
+      kubernetes.core.k8s:
+        name: "{{ name }}-{{ region }}a"
+        api_version: hypershift.openshift.io/v1beta1
+        kind: NodePool
+        namespace: clusters
+        wait: yes
+        wait_sleep: 10
+        wait_timeout: 600
+        wait_condition:
+          type: Ready
+          status: true
+      when: cluster_create is changed
+
+    - name: "deploy | create kubeconfig for {{ name }} cluster"
+      ansible.builtin.shell: |
+        hypershift create kubeconfig --name {{ name }} > {{ deployment_dir }}/{{ name }}/kubeconfig
+      args:
+        executable: /bin/bash
+      when: cluster_create is changed
+
+    - name: "deploy | get kubeadmin password for {{ name }} cluster"
+      ansible.builtin.shell: |
+        oc extract secret/kubeadmin-password --keys=password --to=- -n clusters-mesh
+      args:
+        executable: /bin/bash
+      register: kubeadm
+      when: cluster_create is changed
+    
+    - name: "deploy | set fact for kubeadmin password"
+      ansible.builtin.set_fact:
+        kubeadmin_secret: "{{ kubeadm.stdout }}"
+      when: cluster_create is changed
+
+    - name: "deploy | create config file"
+      ansible.builtin.template:
+        src: cluster-info.txt.j2
+        dest: "{{ deployment_dir }}/{{ name }}/cluster-info.txt"
+      when: cluster_create is changed
+
+    - name: "destroy | remove cluster resources"
+      ansible.builtin.shell: >
+        hypershift destroy cluster aws 
+        --name {{ name }} 
+        --region {{ region }} 
+        --infra-id {{ name }} 
+        --destroy-cloud-resources 
+        --aws-creds {{ creds }} 
+        --base-domain {{ domain }}
+      when: destroy
+      register: cluster_destroy
+    
+    - name: "destroy | remove cluster configurations from filesystem"
+      ansible.builtin.file:
+        state: absent
+        path: "{{ deployment_dir }}/{{ name }}"
+      when: destroy

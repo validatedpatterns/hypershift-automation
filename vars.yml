@@ -1,0 +1,13 @@
+create: false
+destroy: false
+deployment_dir: ~/engineering/clusters
+name: hcpdflt
+replicas: 3
+instance_type: m5.xlarge
+domain: example.com
+pull_secret: '~/.pullsecret.json'
+creds: '~/.aws/credentials'
+region: us-west-2
+image: 4.13.22
+tags: "key=value,key=value"
+gather_facts: false
