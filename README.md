@@ -5,6 +5,7 @@ This is an ansible playbook that deploys | destroys hypershift clusters using An
 ### Prerequisites | Assumptions
 This automation makes certain assumptions:
 1. Existing openshift cluster with multicluster-engine configured with hypershift TP feature
+1. Ansible is installed on your system, with kuberenetes.core collections
 1. `oc` and `hypershift` binaries installed and in your path
 1. Your pull secret from "https://cloud.redhat.com"
 1. An AWS credentials file with a profile that allows you to create cloud resources
