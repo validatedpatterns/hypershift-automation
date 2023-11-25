@@ -63,7 +63,6 @@
         
     - name: "deploy | create hosted controlplane"
       ansible.builtin.shell: >
-        #hypershift create cluster aws --name {{ name }} --additional-tags {{ tags }} --node-pool-replicas {{ replicas }} --instance-type {{ instance_type }} --infra-id {{ name }} --base-domain {{ domain }} --pull-secret {{ pull_secret }} --aws-creds {{ creds }} --region {{ region }} --release-image quay.io/openshift-release-dev/ocp-release:4.13.22-x86_64
         hypershift create cluster aws 
         --name {{ name }} 
         --additional-tags {{ tags }} 
