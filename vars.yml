@@ -1,13 +1,21 @@
 create: false
 destroy: false
-deployment_dir: ~/engineering/clusters
+deployment_dir: ~/work/clusters/hcp/
 name: hcpdflt
 replicas: 3
 instance_type: m5.xlarge
 domain: example.com
 pull_secret: '~/.pullsecret.json'
-creds: '~/.aws/credentials'
+sts_creds: '~/.aws/sts-creds.json'
 region: us-west-2
-image: 4.13.22
+image: 4.15.29
 tags: "key=value,key=value"
 gather_facts: false
+hcp_role_name: hypershift_cli_role
+hcp_policy_name: hypershift_cli_policy
+hcp_users:
+  - user1
+  - user2
+  - user3
+  - user4
+  - user5

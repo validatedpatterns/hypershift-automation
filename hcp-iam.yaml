@@ -1,0 +1,52 @@
+---
+- name: Create IAM credentials for HCP
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: Get the current caller identity information
+      amazon.aws.aws_caller_info:
+      register: caller_info
+      loop:
+        - "{{ hcp_users }}"
+
+    - name: Set ARN for user
+      ansible.builtin.set_fact:
+        arn: "{{ caller_info.arn }}"
+      loop:
+        - "{{ hcp_users }}"
+      register: arn
+    
+    - name: Create directory to hold contents
+      ansible.builtin.file:
+        state: directory
+        path: "{{ lookup('ansible.builtin.env', 'HOME') }}/sts-creds"
+        mode: '0755'
+
+    # Create IAM role
+    - name: Create IAM role
+      amazon.aws.iam_role:
+        name: "{{ hcp_role_name }}"
+        assume_role_policy_document: "{{ lookup('ansible.builtin.template', './assumerolepolicy.json.j2')}}"
+        state: present
+      register: assume_policy
+
+    # Create policy from template
+    - name: Create hcp policy
+      amazon.aws.iam_policy:
+        policy_name: "{{ hcp_policy_name }}"
+        iam_name: "{{ hcp_role_name }}"
+        iam_type: role
+        policy_json: "{{lookup('ansible.builtin.template', './policy.json.j2')}}"
+        state: present
+
+    # Generate session token
+    - name: Generate sts token 
+      community.aws.sts_session_token:
+      register: sts
+    
+    - name: Create token file
+      ansible.builtin.template:
+        src: ./sts-creds.json.j2
+        dest: "{{lookup('ansible.builtin.env','HOME')}}/sts-creds/sts-creds.json"
+        owner: "{{lookup('ansible.builtin.env', 'USER')}}"
+        mode: '0600'

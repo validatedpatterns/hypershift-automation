@@ -6,7 +6,6 @@
     - vars.yml
     
   tasks:
-
     - name: "preflight | check for oc binary"
       ansible.builtin.shell:
         cmd: which oc
@@ -37,21 +36,6 @@
         msg: "{{ pull_secret }} must exist"
       when: pullsecret.stat.exists is not defined
 
-    - name: "preflight | check for {{ creds }} file"
-      ansible.builtin.stat:
-        path: "{{ creds }}"
-      register: creds
-      ignore_errors: true
-
-    - name: "preflight | check for cloud cred variables"
-      ansible.builtin.assert:
-        that:
-          - "lookup('env','AWS_REGION')"
-          - "lookup('env','AWS_SECRET_ACCESS_KEY')"
-          - "lookup('env','AWS_ACCESS_KEY_ID')"
-      register: envs
-      when: not creds.stat.exists
-
     - name: "deploy | check if {{ name }} already exists"
       kubernetes.core.k8s_info:
         api_version: hypershift.openshift.io/v1beta1
@@ -74,6 +58,8 @@
         --aws-creds {{ creds }} 
         --region {{ region }} 
         --release-image quay.io/openshift-release-dev/ocp-release:{{ image }}-x86_64
+        --sts-creds {{ creds }} 
+        --role-arn {{ hcp_role_arn }}
       args:
         executable: /bin/bash
       when: create and not hc.changed and not destroy
