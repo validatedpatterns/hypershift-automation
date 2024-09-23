@@ -5,7 +5,7 @@ help:
 
 .PHONY: iam
 iam: ## Provision IAM roles and policies
-	ansible-playbook -e '@vars.yml' playbooks/site.yml
+	ansible-playbook -e '@vars.yml' -e create=true site.yml
 
 .PHONY: create
 create: ## Create a hosted (HyperShift) cluster
