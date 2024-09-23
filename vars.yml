@@ -4,6 +4,7 @@ destroy: false
 
 #Create IAM
 create_iam: false
+
 #Cluster Info - We use these to create/destroy clusters
 name: demo
 domain: aws.validatedpatterns.io
