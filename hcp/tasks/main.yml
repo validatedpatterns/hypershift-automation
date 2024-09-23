@@ -1,0 +1,38 @@
+---
+# tasks file for hcp
+# Validate everything exists first
+# 
+- name: "validate  | check for oc binary"
+  ansible.builtin.shell:
+    cmd: which oc 
+  register: oc 
+  changed_when: false
+  failed_when: oc.rc != 0  
+
+- name: "validate | check for hcp binary"
+  ansible.builtin.shell:
+    cmd: which hcp
+  register: hcp
+  changed_when: false
+  failed_when: hcp.rc != 0  
+
+- name: "validate | check for existence of {{ pull_secret_path }}"
+  ansible.builtin.stat:
+    path: "{{ pull_secret_path }}"
+  register: pullsecret
+
+- name: "validate | fail if {{ pull_secret_path }} is not found"
+  ansible.builtin.fail:
+    msg: "{{ pull_secret_path }} must exist"
+  when: pullsecret.stat.exists is not defined
+
+- name: Provision IAM Roles and Policies for HyperShift
+  include_tasks: iam.yml
+  when: create_iam
+
+- name: Hosted Control Plane Management
+  include_tasks: hcp.yml
+
+- name: Destroy Hosted Control Plane Resources
+  include_tasks: hcp-destroy.yml
+  when: destroy is true

@@ -1,0 +1,19 @@
+#Set hosted control plane var
+hcp: hosted-control-planes
+
+#Set gather_facts to false to speed up playbook execution
+gather_facts: false
+
+#Set default locations for cluster and cloud artifacts
+deployment_dir: "{{lookup('ansible.builtin.env','HOME')}}/clusters/hcp"
+pull_secret_path: "{{lookup('ansible.builtin.env', 'HOME')}}/.pullsecret.json"
+sts_creds:
+  dir: "{{lookup('ansible.builtin.env','HOME')}}/.aws/sts-creds"
+  file: sts-creds.json
+
+#We need the role name set for both IAM tasks and Hosted Cluster management tasks
+iam:
+  hcp_role_name: hypershift_cli_role
+  hcp_policy_name: hypershift_cli_policy
+  hcp_users: {}
+    #- list of users to bind to IAM policy

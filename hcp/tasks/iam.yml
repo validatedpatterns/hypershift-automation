@@ -1,0 +1,43 @@
+---
+# TO DO: Once we have the IAM permissions worked out I am going to burn these tasks 
+#- name: Get the current caller identity information
+#  amazon.aws.aws_caller_info:
+#  register: caller_info
+#  loop:
+#    - "{{ hcp_users }}"
+#
+#- name: Set ARN for user
+#  ansible.builtin.set_fact:
+#    arn: "{{ caller_info.arn }}"
+#  loop:
+#    - "{{ hcp_users }}"
+#  register: arn
+# ToDO
+#- name: "IAM | Get Account info" 
+#  Loop over a list of users and get their ARNs
+#  register: users
+#
+# This part is actually not even necessary more pseudo-codificating
+#- name: "IAM | Create Assume Role Policy from template"
+#  ansible.builtin.template:
+#    src: "./templates/assumeRolePolicy.json.j2"
+#  loop:
+#    - {{ users }}
+#
+
+# Create IAM role
+- name: "IAM | Create IAM role for the {{ hcp }} cli"
+  amazon.aws.iam_role:
+    name: "{{ iam.hcp_role_name }}"
+    assume_role_policy_document: "{{ lookup('ansible.builtin.template', './templates/assumerolepolicy.json.j2')}}"
+    state: present
+  register: assume_policy
+
+# Create policy from template
+- name: "IAM | Create {{ hcp }} IAM policy"
+  amazon.aws.iam_policy:
+    policy_name: "{{ iam.hcp_policy_name }}"
+    iam_name: "{{ iam.hcp_role_name }}"
+    iam_type: role
+    policy_json: "{{lookup('ansible.builtin.template', './templates/policy.json.j2')}}"
+    state: present
