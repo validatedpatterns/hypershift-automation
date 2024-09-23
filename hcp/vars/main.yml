@@ -2,8 +2,6 @@
 create: false
 destroy: false
 
-#Create IAM
-create_iam: false
 #Cluster Info - We use these to create/destroy clusters
 name: demo
 domain: aws.validatedpatterns.io
@@ -13,4 +11,4 @@ region: us-west-2
 replicas: 1
 instance_type: m5.xlarge
 image: 4.15.29
-#tags: "owner=jrickard,email='jrickard@redhat.com'"
+tags: "owner=jrickard,email='jrickard@redhat.com'"

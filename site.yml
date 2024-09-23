@@ -1,0 +1,5 @@
+- name: Hosted Control Planes Provisioner
+  hosts: localhost
+  connection: local
+  roles:
+    - hcp

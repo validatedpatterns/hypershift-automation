@@ -1,0 +1,19 @@
+- name: "destroy | remove cluster resources"
+  ansible.builtin.shell: >
+    hcp destroy cluster aws 
+    --name {{ name }} 
+    --region {{ region }} 
+    --infra-id {{ name }} 
+    --destroy-cloud-resources 
+    --base-domain {{ domain }}
+    --role-arn {{ hcp_role_arn }}
+    --sts-creds {{ sts_creds_path }}/sts-creds.json
+  when: destroy
+  register: cluster_destroy
+
+#- name: "destroy | remove cluster configurations from filesystem"
+#  ansible.builtin.file:
+#    state: absent
+#    path: "{{ deployment_dir }}/{{ name }}"
+#  when: destroy
+
