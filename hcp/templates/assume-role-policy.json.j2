@@ -3,10 +3,16 @@
     "Statement": [
         {
             "Effect": "Allow",
+            "Action": "sts:AssumeRole",
             "Principal": {
-                "AWS": "{{ arn }}"
-            },
-            "Action": "sts:AssumeRole"
+                "AWS": [
+                   {% for user in arn -%}
+                   "{{ user }}"{% if not loop.last %}, 
+                   {% else +%}
+                 ]           
+            }
         }
     ]
 }
+                   {% endif -%}
+                   {%- endfor -%}
