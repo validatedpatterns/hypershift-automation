@@ -1,0 +1,103 @@
+# The iam.hcp_role_name must exist for this to succeed
+- name: "preflight | Get the {{ hcp_role }} ARN"
+  ansible.builtin.inlude_tasks: role-facts.yml
+
+# Create sts-creds directory
+- name: "preflight | create directory for {{ sts_creds.dir }}"
+  ansible.builtin.file:
+    state: directory
+    path: "{{ sts_creds.dir}}"
+    owner: "{{lookup('ansible.builtin.env', 'USER')}}"
+    mode: 0750
+
+# Generate the STS token - the token lives for 12 hrs by default
+- name: "preflight | Generate sts token"
+  community.aws.sts_session_token:
+  register: sts
+
+# Create the session config from a template
+- name: "preflight | Create session token config {{ sts_creds.dir }}/{{ sts_creds.file }}"
+  ansible.builtin.copy:
+    content: "{{lookup('ansible.builtin.template', './templates/sts-creds.json.j2')}}"
+    dest: "{{ sts_creds.dir }}/{{ sts_creds.file }}"
+    owner: "{{lookup('ansible.builtin.env', 'USER')}}"
+    mode: '0600'
+
+# Create the deployment directory to store deployment artifacts
+- name: "deploy | create {{ hcp }} deployment directory"
+  ansible.builtin.file:
+    state: directory
+    path: "{{ deployment_dir }}/{{ name }}"
+    mode: 0755
+
+# Check for existing hostedcluster - this is not foolproof - other resources (cloud) may exist
+- name: "deploy | check if hostedcluster/{{ name }} already exists"
+  kubernetes.core.k8s_info:
+    api_version: hypershift.openshift.io/v1beta1
+    kind: HostedCluster
+    namespace: clusters
+    name: "{{ name }}"
+  register: hc
+  changed_when: hc.resources |length > 0
+    
+# Create the hypershift cluster when create = true, the hc resource above is not changed and when destroy=false
+# Removed: --additional-tags {{ tags }}
+- name: "deploy | create cluster {{ name }}"
+  ansible.builtin.shell: >
+    hcp create cluster aws 
+    --name {{ name }} 
+    --node-pool-replicas {{ replicas }} 
+    --instance-type {{ instance_type }} 
+    --infra-id {{ name }} 
+    --base-domain {{ domain }} 
+    --pull-secret {{ pull_secret_path }} 
+    --region {{ region }} 
+    --release-image quay.io/openshift-release-dev/ocp-release:{{ image }}-x86_64
+    --sts-creds {{ sts_creds.dir }}/{{ sts_creds.file }}
+    --role-arn {{ hcp_role_arn }}
+  args:
+    executable: /bin/bash
+  when: create and not hc.changed and not destroy
+  register: cluster_create
+
+# Check for the nodepool resources - this takes the longest bc of the machines spinning up
+- name: "deploy | wait for nodepool provisioning to complete | this can take a while"
+  kubernetes.core.k8s:
+    name: "{{ name }}-{{ region }}a"
+    api_version: hypershift.openshift.io/v1beta1
+    kind: NodePool
+    namespace: clusters
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 900
+    wait_condition:
+      type: Ready
+      status: true
+  when: cluster_create is changed
+
+#Post-Deployment tasks
+- name: "post-install | create kubeconfig for {{ name }} cluster"
+  ansible.builtin.shell: |
+    hcp create kubeconfig --name {{ name }} > {{ deployment_dir }}/{{ name }}/kubeconfig
+  args:
+    executable: /bin/bash
+  when: cluster_create is changed
+
+- name: "post-install | get kubeadmin password for {{ name }} cluster"
+  ansible.builtin.shell: |
+    oc extract secret/kubeadmin-password --keys=password --to=- -n clusters-{{ name }}
+  args:
+    executable: /bin/bash
+  register: kubeadm
+  when: cluster_create is changed
+
+- name: "post-install | set fact for kubeadmin password"
+  ansible.builtin.set_fact:
+    kubeadmin_secret: "{{ kubeadm.stdout }}"
+  when: cluster_create is changed
+
+- name: "post-install | create config file"
+  ansible.builtin.copy:
+    content: "{{lookup('ansible.builtin.template', './templates/cluster-info.txt.j2')}}"
+    dest: "{{ deployment_dir }}/{{ name }}/cluster-info.txt"
+  when: cluster_create is changed
