@@ -28,10 +28,11 @@
 
 - name: Provision IAM Roles and Policies for HyperShift
   include_tasks: iam.yml
-  when: create_iam
+  when: create_iam is true
 
 - name: Hosted Control Plane Management
   include_tasks: hcp.yml
+  when: create is true
 
 - name: Destroy Hosted Control Plane Resources
   include_tasks: hcp-destroy.yml
