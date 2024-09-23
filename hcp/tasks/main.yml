@@ -31,9 +31,9 @@
   when: create_iam is true
 
 - name: Hosted Control Plane Management
-  include_tasks: hcp.yml
+  include_tasks: hcp-create.yml
   when: create is true
 
 - name: Destroy Hosted Control Plane Resources
   include_tasks: hcp-destroy.yml
-  when: destroy is true
+  when: destroy
