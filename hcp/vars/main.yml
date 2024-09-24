@@ -1,14 +1,13 @@
 #Actions -e create=true "creates a cluster" -e destroy=true  "destroys a cluster"
-create: false
-destroy: false
+create: {}
+destroy: {}
 
 #Cluster Info - We use these to create/destroy clusters
-name: demo
-domain: aws.validatedpatterns.io
-region: us-west-2
+name: {}
+domain: {}
+region: {}
 
 #Cluster Characteristics - Describe how you want the cluster deployed
-replicas: 1
-instance_type: m5.xlarge
-image: 4.15.29
-tags: "owner=jrickard,email='jrickard@redhat.com'"
+replicas: {}
+instance_type: {}
+image: {}
