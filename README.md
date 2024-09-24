@@ -19,7 +19,7 @@ This list of variables are for the cluster lifecycle.
 | create    | false   | set true to create cluster |
 | destroy   | false   | set true to destroy cluster |
 | create_iam | false | set true to create iam roles and policies | 
-| name | `hcpdflt` | cluster name ( also used for infraID) |
+| name | `hcpdflt` | cluster name (also used for infraID) |
 | replicas | `1` | Number of machines to create |
 | instance_type | `m5.xlarge` | AWS Machine type |
 | domain | `example.com` | base domain for route53 and cluster deployment |
@@ -33,11 +33,11 @@ These variables are default names and paths to various things required for deplo
 
 | variable | default | description |
 |----------|---------|-------------|
-| hcp | hosted-control-planes | Generic label for a resource |
+| hcp | hosted-control-planes | Generic label |
 | gather_facts | false | speed ansible up |
-| deployment_dir | `"{{lookup('ansible.builtin.env','HOME')}}/clusters/hcp"` | Creates an artifact directory in $HOME |
-| pull_secret_path | `"{{lookup('ansible.builtin.env', 'HOME')}}/.pullsecret.json"` | Looks for pull secret in $HOME/.pullsecret.json |
-| sts_creds | dir: `"{{lookup('ansible.builtin.env','HOME')}}/.aws/sts-creds"` <br /> file: `sts-creds.json` | Creates creds directory in $HOME <br /> Name of the sts config file |
+| deployment_dir | `{{lookup('ansible.builtin.env','HOME')}}/clusters/hcp` | Creates an artifact directory in $HOME |
+| pull_secret_path | `{{lookup('ansible.builtin.env', 'HOME')}}/.pullsecret.json` | Looks for pull secret in $HOME/.pullsecret.json |
+| sts_creds | dir: `{{lookup('ansible.builtin.env','HOME')}}/.aws/sts-creds` <br /> file: `sts-creds.json` | Creates creds directory in $HOME <br /> Name of the sts config file |
 | iam | hcp_role_name: `hypershift_cli_role` <br /> hcp_policy_name: `hypershift_cli_policy` <br /> hcp_users: `{}` | Name of the role for building/destroying clusters <br /> Name of the policy associated with the role <br /> List of users to bind to the role so they can build/destroy clusters |
 
 ### Usage
