@@ -31,9 +31,9 @@
     --base-domain {{ domain }} 
     --pull-secret {{ pull_secret_path }} 
     --region {{ region }} 
-{% if image != "latest" %}
+    {% if image != "latest" %}
     --release-image quay.io/openshift-release-dev/ocp-release:{{ image }}-x86_64
-{% endif %}
+    {% endif %}
     --sts-creds {{ sts_creds.dir }}/{{ sts_creds.file }}
     --role-arn {{ hcp_role_arn }}
   args:
@@ -51,8 +51,11 @@
       instance-type: {{ instance_type }}
       base-domain: {{ domain }}
       region: {{ region }}
+      {% if image != "latest" %}
       ocp_version: {{ image }}"
-      
+      {% else %}
+      ocp_version: latest"
+      {%endif %}      
 # Check for the nodepool resources - this takes the longest bc of the machines spinning up
 - name: "deploy | wait for nodepool provisioning to complete | this can take a while"
   kubernetes.core.k8s:
