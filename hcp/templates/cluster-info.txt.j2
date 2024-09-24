@@ -8,9 +8,9 @@ Region: {{ region }}
 
 OpenShift Console: https://console-openshift-console.apps.{{ name }}.{{ domain }}
 
-kubeadmin/{{ kubeadmin_secret }}
+Username and Password for login: kubeadmin/{{ kubeadmin_secret }}
 
-The kubeconfig is on the local filesystem: {{ deployment_dir }}/{{ name }}/kubeconfig
+The kubeconfig is on the local filesystem: export KUBECONFIG={{ deployment_dir }}/{{ name }}/kubeconfig
 
 
 
