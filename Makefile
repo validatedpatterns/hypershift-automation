@@ -1,3 +1,8 @@
+NAME ?=
+REGION ?=
+REPLICAS ?=
+TYPE ?=
+
 .PHONY: help
 # No need to add a comment here as help is described in common/
 help:
@@ -7,13 +12,17 @@ help:
 iam: ## Provision IAM roles and policies
 	ansible-playbook -e '@vars.yml' -e create=true site.yml
 
-.PHONY: create
-create: ## Create a hosted (HyperShift) cluster
+.PHONY: build
+build: ## Build a hosted (HyperShift) cluster
 	ansible-playbook -e '@vars.yml' -e create=true site.yml
 
 .PHONY: destroy
 destroy: ## Destroy a hosted (HyperShift) cluster
-	ansible-playbook -e '@vars.yml' -e create=false site.yml
+	ansible-playbook -e '@vars.yml' -e destroy=true site.yml
 
 .PHONY: info
 info: ## Get the connection information for the managed cluster
+
+.PHONY: get-clusters
+get-clusters: ## Get the hostedclusters
+	@oc get hc -n clusters

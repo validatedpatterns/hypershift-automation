@@ -1,18 +1,18 @@
 - name: "destroy | Get the role ARN information"
-  ansible.builtin.include_tasks: role-facts.yml
+  ansible.builtin.import_tasks: role-facts.yml
 
 - name: "destroy | remove cluster resources"
-  ansible.builtin.shell: >
-    hcp destroy cluster aws 
-    --name {{ name }} 
-    --region {{ region }} 
-    --infra-id {{ name }} 
-    --base-domain {{ domain }}
-    --role-arn {{ hcp_role_arn }}
-    --sts-creds {{ sts_creds.dir }}/sts-creds.json
-    --destroy-cloud-resources 
+  ansible.builtin.command:
+    hcp destroy cluster aws \
+    --name {{ name }} \
+    --region {{ region }} \
+    --infra-id {{ name }} \
+    --base-domain {{ domain }} \
+    --role-arn {{ hcp_role_arn }} \
+    --sts-creds {{ sts_creds.dir }}/sts-creds.json \
+    --destroy-cloud-resources
   args:
-    executable: /bin/bash
+    executable: /usr/bin/bash
   when: destroy
   register: cluster_destroy
 
