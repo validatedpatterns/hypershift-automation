@@ -1,5 +1,5 @@
 # The iam.hcp_role_name must exist for this to succeed
-- name: "IAM | Get the {{ hcp_role_name }} role ARN"
+- name: "IAM | Get the {{ iam.hcp_role_name }} role ARN"
   amazon.aws.iam_role_info:
     name: "{{ iam.hcp_role_name }}"
   register: result

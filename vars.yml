@@ -6,9 +6,9 @@ destroy: false
 create_iam: false
 
 #Cluster Info - We use these to create/destroy clusters
-name: demo
-domain: aws.validatedpatterns.io
-region: us-west-2
+name: changeme_clustername
+domain: changeme_base_domain
+region: changeme_region
 
 #Cluster Characteristics - Describe how you want the cluster deployed
 replicas: 1

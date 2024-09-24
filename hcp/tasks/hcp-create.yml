@@ -1,27 +1,6 @@
 # The iam.hcp_role_name must exist for this to succeed
-- name: "preflight | Get the {{ hcp_role }} ARN"
-  ansible.builtin.inlude_tasks: role-facts.yml
-
-# Create sts-creds directory
-- name: "preflight | create directory for {{ sts_creds.dir }}"
-  ansible.builtin.file:
-    state: directory
-    path: "{{ sts_creds.dir}}"
-    owner: "{{lookup('ansible.builtin.env', 'USER')}}"
-    mode: 0750
-
-# Generate the STS token - the token lives for 12 hrs by default
-- name: "preflight | Generate sts token"
-  community.aws.sts_session_token:
-  register: sts
-
-# Create the session config from a template
-- name: "preflight | Create session token config {{ sts_creds.dir }}/{{ sts_creds.file }}"
-  ansible.builtin.copy:
-    content: "{{lookup('ansible.builtin.template', './templates/sts-creds.json.j2')}}"
-    dest: "{{ sts_creds.dir }}/{{ sts_creds.file }}"
-    owner: "{{lookup('ansible.builtin.env', 'USER')}}"
-    mode: '0600'
+- name: "preflight | Get the {{ iam.hcp_role }} ARN"
+  ansible.builtin.import_tasks: role-facts.yml
 
 # Create the deployment directory to store deployment artifacts
 - name: "deploy | create {{ hcp }} deployment directory"
@@ -52,7 +31,9 @@
     --base-domain {{ domain }} 
     --pull-secret {{ pull_secret_path }} 
     --region {{ region }} 
+{% if image != "latest" %}
     --release-image quay.io/openshift-release-dev/ocp-release:{{ image }}-x86_64
+{% endif %}
     --sts-creds {{ sts_creds.dir }}/{{ sts_creds.file }}
     --role-arn {{ hcp_role_arn }}
   args:
@@ -60,6 +41,18 @@
   when: create and not hc.changed and not destroy
   register: cluster_create
 
+# Display the cluster information:
+- name: "deploy | Cluster Create Info"
+  ansible.builtin.debug:
+    msg: |
+     "A cluster with the following information is being created:
+      name: {{ name }}
+      replicas: {{ replicas }}
+      instance-type: {{ instance_type }}
+      base-domain: {{ domain }}
+      region: {{ region }}
+      ocp_version: {{ image }}"
+      
 # Check for the nodepool resources - this takes the longest bc of the machines spinning up
 - name: "deploy | wait for nodepool provisioning to complete | this can take a while"
   kubernetes.core.k8s:
