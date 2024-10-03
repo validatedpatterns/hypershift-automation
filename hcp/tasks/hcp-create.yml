@@ -37,7 +37,7 @@
     --sts-creds {{ sts_creds.dir }}/{{ sts_creds.file }}
     --role-arn {{ hcp_role_arn }}
   args:
-    executable: /bin/bash
+    executable: "{{lookup('ansible.builtin.env', 'SHELL')}}"
   when: create and not hc.changed and not destroy
   register: cluster_create
 
@@ -76,14 +76,14 @@
   ansible.builtin.shell: |
     hcp create kubeconfig --name {{ name }} > {{ deployment_dir }}/{{ name }}/kubeconfig
   args:
-    executable: /bin/bash
+    executable: "{{lookup('ansible.builtin.env', 'SHELL')}}"
   when: cluster_create is changed
 
 - name: "post-install | get kubeadmin password for {{ name }} cluster"
   ansible.builtin.shell: |
     oc extract secret/kubeadmin-password --keys=password --to=- -n clusters-{{ name }}
   args:
-    executable: /bin/bash
+    executable: "{{lookup('ansible.builtin.env', 'SHELL')}}"
   register: kubeadm
   when: cluster_create is changed
 

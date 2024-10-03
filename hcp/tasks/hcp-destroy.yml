@@ -2,7 +2,7 @@
   ansible.builtin.import_tasks: role-facts.yml
 
 - name: "destroy | remove cluster resources"
-  ansible.builtin.command:
+  ansible.builtin.shell:
     hcp destroy cluster aws \
     --name {{ name }} \
     --region {{ region }} \
@@ -12,13 +12,14 @@
     --sts-creds {{ sts_creds.dir }}/sts-creds.json \
     --destroy-cloud-resources
   args:
-    executable: /usr/bin/bash
+    executable: "{{lookup('ansible.builtin.env', 'SHELL')}}"
   when: destroy
   register: cluster_destroy
+  changed_when: "'Found hosted cluster' in cluster_destroy.stderr_lines"
 
-#- name: "destroy | remove cluster configurations from filesystem"
-#  ansible.builtin.file:
-#    state: absent
-#    path: "{{ deployment_dir }}/{{ name }}"
-#  when: destroy
+- name: "destroy | remove cluster configurations from filesystem"
+  ansible.builtin.file:
+    state: absent
+    path: "{{ deployment_dir }}/{{ name }}"
+  when: destroy and cluster_destroy is changed
 
