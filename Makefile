@@ -18,11 +18,22 @@ build: ## Build a hosted (HyperShift) cluster
 
 .PHONY: destroy
 destroy: ## Destroy a hosted (HyperShift) cluster
+	@unset KUBECONFIG
 	ansible-playbook -e '@vars.yml' -e destroy=true site.yml
 
 .PHONY: info
 info: ## Get the connection information for the managed cluster
+	@cat ~/clusters/hcp/${NAME}/cluster-info.txt
 
 .PHONY: get-clusters
 get-clusters: ## Get the hostedclusters
 	@oc get hc -n clusters
+
+.PHONY: all
+all: iam build ## Provision IAM resources and create a cluster
+
+#.PHONY local-setup
+#local-setup: ## Configure local machine
+#	@sudo dnf install -y ansible
+#	@ansible-galaxy collection install -r requirements.yml
+#	@curl -Lf -o /tmp/hcp-cli.tar.gz https://developers.redhat.com/content-gateway/file/pub/mce/clients/hcp-cli/2.6.2-7/hcp-cli-2.6.2-7-linux-amd64.tar.gz && tar xvf /tmp/hcp-cli.tar.g
