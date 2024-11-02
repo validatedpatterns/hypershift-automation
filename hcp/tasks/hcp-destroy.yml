@@ -21,5 +21,6 @@
   ansible.builtin.file:
     state: absent
     path: "{{ deployment_dir }}/{{ name }}"
-  when: destroy and cluster_destroy is changed
+  #when: destroy and cluster_destroy is changed
+  when: destroy
 
