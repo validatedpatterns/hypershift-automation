@@ -71,6 +71,10 @@
       status: true
   when: cluster_create is changed
 
+# Wait for the hosted cluster status to change to completed
+#
+#oc wait --for=jsonpath='{.status.version.history.state}'=Completed -n clusters hc {{ name }} --timeout=900s
+# 
 #Post-Deployment tasks
 - name: "post-install | create kubeconfig for {{ name }} cluster"
   ansible.builtin.shell: |
