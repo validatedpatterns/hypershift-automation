@@ -36,6 +36,7 @@
     {% endif %}
     --sts-creds {{ sts_creds.dir }}/{{ sts_creds.file }}
     --role-arn {{ hcp_role_arn }}
+    --multi-arch={{ multiarch }}
   args:
     executable: "{{lookup('ansible.builtin.env', 'SHELL')}}"
   when: create and not hc.changed and not destroy
