@@ -17,3 +17,6 @@ iam:
   hcp_policy_name: hypershift_cli_policy
   hcp_users: {}
     #- list of users to bind to IAM policy
+
+#Set multi-arch flag
+multiarch: 'false'
