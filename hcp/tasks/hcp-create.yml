@@ -19,19 +19,31 @@
   register: hc
   changed_when: hc.resources |length > 0
     
+# If version is set to default, use the version from the hostingcluster for the hostedcluster
+- name: "deploy | set hostedcluster version"
+  ansible.builtin.shell:
+    oc get clusterversion -o jsonpath='{.items[*].spec.desiredUpdate.version}'
+  args:
+    executable: "{{lookup('ansible.builtin.env', 'SHELL')}}"
+  register: version
+  when: image == "default"
+
 # Create the hypershift cluster when create = true, the hc resource above is not changed and when destroy=false
 # Removed: --additional-tags {{ tags }}
 - name: "deploy | create cluster {{ name }}"
   ansible.builtin.shell: >
     hcp create cluster aws 
     --name {{ name }} 
+    --multi-arch={{ multiarch }}
     --node-pool-replicas {{ replicas }} 
     --instance-type {{ instance_type }} 
     --infra-id {{ name }} 
     --base-domain {{ domain }} 
     --pull-secret {{ pull_secret_path }} 
     --region {{ region }} 
-    {% if image != "latest" %}
+    {% if image == "default" %}
+    --release-image quay.io/openshift-release-dev/ocp-release:{{ version.stdout }}-x86_64
+    {% else %}
     --release-image quay.io/openshift-release-dev/ocp-release:{{ image }}-x86_64
     {% endif %}
     --sts-creds {{ sts_creds.dir }}/{{ sts_creds.file }}
@@ -52,10 +64,10 @@
       instance-type: {{ instance_type }}
       base-domain: {{ domain }}
       region: {{ region }}
-      {% if image != "latest" %}
+      {% if image != "default" %}
       ocp_version: {{ image }}"
       {% else %}
-      ocp_version: latest"
+      ocp_version: {{ version }}"
       {%endif %}      
 # Check for the nodepool resources - this takes the longest bc of the machines spinning up
 - name: "deploy | wait for nodepool provisioning to complete | this can take a while"
