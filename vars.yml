@@ -13,5 +13,6 @@ region: changeme_region
 #Cluster Characteristics - Describe how you want the cluster deployed
 replicas: 1
 instance_type: m5.xlarge
-#Set to latest if you want to use the most recent release, otherwise define version: x.y.z (4.15.29) 
-image: latest
+#Setting to default uses the hosting-clusters version for the release-image. To deploy with a specific
+#version, define it below: x.y.z (4.15.29) 
+image: default
