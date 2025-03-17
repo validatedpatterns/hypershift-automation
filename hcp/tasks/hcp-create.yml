@@ -34,7 +34,6 @@
   ansible.builtin.shell: >
     hcp create cluster aws 
     --name {{ name }} 
-    --multi-arch={{ multiarch }}
     --node-pool-replicas {{ replicas }} 
     --instance-type {{ instance_type }} 
     --infra-id {{ name }} 
