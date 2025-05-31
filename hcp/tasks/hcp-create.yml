@@ -6,7 +6,7 @@
 - name: "deploy | create {{ hcp }} deployment directory"
   ansible.builtin.file:
     state: directory
-    path: "{{ deployment_dir }}/{{ name }}"
+    path: "{{ deployment_dir }}/{{ name }}/auth"
     mode: 0755
 
 # Check for existing hostedcluster - this is not foolproof - other resources (cloud) may exist
