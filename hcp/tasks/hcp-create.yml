@@ -90,7 +90,7 @@
 #Post-Deployment tasks
 - name: "post-install | create kubeconfig for {{ name }} cluster"
   ansible.builtin.shell: |
-    hcp create kubeconfig --name {{ name }} > {{ deployment_dir }}/{{ name }}/kubeconfig
+    hcp create kubeconfig --name {{ name }} > {{ deployment_dir }}/{{ name }}/auth/kubeconfig
   args:
     executable: "{{lookup('ansible.builtin.env', 'SHELL')}}"
   when: cluster_create is changed
@@ -108,6 +108,12 @@
     kubeadmin_secret: "{{ kubeadm.stdout }}"
   when: cluster_create is changed
 
+- name: "post-install | create kubeadmin secret artifact"
+  ansible.builtin.copy:
+    content: "{{lookup('ansible.builtin.template', './templates/kubeadmin-password.j2')}}"
+    dest: "{{ deployment_dir }}/{{ name }}/auth/kubeadmin-password"
+  when: cluster_create is changed
+    
 - name: "post-install | create config file"
   ansible.builtin.copy:
     content: "{{lookup('ansible.builtin.template', './templates/cluster-info.txt.j2')}}"
