@@ -18,7 +18,6 @@ build: ## Build a hosted (HyperShift) cluster
 
 .PHONY: destroy
 destroy: ## Destroy a hosted (HyperShift) cluster
-	@unset KUBECONFIG
 	ansible-playbook -e '@vars.yml' -e destroy=true site.yml
 
 .PHONY: info
