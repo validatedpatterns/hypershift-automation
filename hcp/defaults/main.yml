@@ -20,3 +20,7 @@ iam:
 
 #Set multi-arch flag
 multiarch: 'false'
+
+#Validated Parameters 
+wait_timeout_seconds: 900        # Max time to wait (900 seconds = 15 minutes)
+check_interval_seconds: 10       # How often to poll the resource status

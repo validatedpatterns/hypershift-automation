@@ -28,6 +28,18 @@
   register: version
   when: image == "default"
 
+# If zones is true, get the list of availability zones and create a fact
+- name: "deploy | Gather information about all availability zones"
+  amazon.aws.aws_az_info:
+    region: "{{ region }}"
+  register: az_info
+  when: "{{ spread_across_availability_zones }}"
+
+- name: "deploy | Set fact with availability zone names"
+  set_fact:
+    zones: "{{ az_info.availability_zones | map(attribute='zone_name') | list |join(',')}}"
+  when: "{{ spread_across_availability_zones }}"
+
 # Create the hypershift cluster when create = true, the hc resource above is not changed and when destroy=false
 # Removed: --additional-tags {{ tags }}
 - name: "deploy | create cluster {{ name }}"
@@ -39,7 +51,10 @@
     --infra-id {{ name }} 
     --base-domain {{ domain }} 
     --pull-secret {{ pull_secret_path }} 
-    --region {{ region }} 
+    --region {{ region }}
+    {% if spread_across_availability_zones %}
+    --zones {{ zones }}
+    {% endif %}
     {% if image == "default" %}
     --release-image quay.io/openshift-release-dev/ocp-release:{{ version.stdout }}-x86_64
     {% else %}
@@ -63,30 +78,33 @@
       instance-type: {{ instance_type }}
       base-domain: {{ domain }}
       region: {{ region }}
+      {% if spread_across_availability_zones %}
+      zones: {{ zones }}
+      {% endif %}
       {% if image != "default" %}
       ocp_version: {{ image }}"
       {% else %}
       ocp_version: {{ version }}"
-      {%endif %}      
-# Check for the nodepool resources - this takes the longest bc of the machines spinning up
-- name: "deploy | wait for nodepool provisioning to complete | this can take a while"
-  kubernetes.core.k8s:
-    name: "{{ name }}-{{ region }}a"
+      {%endif %}
+
+- name: "deploy | wait for hostedcluster and nodepool to be ready | this can take a while"
+  kubernetes.core.k8s_info:
+    name: "{{ name }}"
     api_version: hypershift.openshift.io/v1beta1
-    kind: NodePool
+    kind: hostedcluster
     namespace: clusters
-    wait: yes
-    wait_sleep: 10
-    wait_timeout: 900
-    wait_condition:
-      type: Ready
-      status: true
+  register: hc_status
+  until:
+    - hc_status.resources is defined and hc_status.resources | length > 0
+    - hc_status.resources[0].status is defined
+    - hc_status.resources[0].status.version is defined
+    - hc_status.resources[0].status.version.history is defined
+    - "'Completed' in (hc_status.resources[0] | community.general.json_query('status.version.history[*].state'))"
+  retries: "{{ (wait_timeout_seconds / check_interval_seconds) | int }}"
+  delay: "{{ check_interval_seconds }}"
+  failed_when: hc_status.elapsed_seconds | default(0) > wait_timeout_seconds
   when: cluster_create is changed
 
-# Wait for the hosted cluster status to change to completed
-#
-#oc wait --for=jsonpath='{.status.version.history.state}'=Completed -n clusters hc {{ name }} --timeout=900s
-# 
 #Post-Deployment tasks
 - name: "post-install | create kubeconfig for {{ name }} cluster"
   ansible.builtin.shell: |
