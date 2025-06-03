@@ -25,7 +25,7 @@ This list of variables are for the cluster lifecycle.
 | domain | `example.com` | base domain for route53 and cluster deployment |
 | region | `us-west-2` | default region to deploy resources |
 | image | `latest` | OpenShift version to deploy |
-
+| spread_across_availability_zones | `false` | Single or Multiple availability zone deployment |
 
 ### Default Variables 
 
@@ -39,6 +39,9 @@ These variables are default names and paths to various things required for deplo
 | pull_secret_path | `{{lookup('ansible.builtin.env', 'HOME')}}/.pullsecret.json` | Looks for pull secret in $HOME/.pullsecret.json |
 | sts_creds | dir: `{{lookup('ansible.builtin.env','HOME')}}/.aws/sts-creds` <br /> file: `sts-creds.json` | Creates creds directory in $HOME <br /> Name of the sts config file |
 | iam | hcp_role_name: `hypershift_cli_role` <br /> hcp_policy_name: `hypershift_cli_policy` <br /> hcp_users: `{}` | Name of the role for building/destroying clusters <br /> Name of the policy associated with the role <br /> List of users to bind to the role so they can build/destroy clusters |
+| multiarch | false | requires the use of a multiarch image |
+| wait_timeout_seconds | Max time to wait (900 seconds = 15 minutes) |
+| check_interval_seconds | How often to poll the resource status |
 
 ### Usage
 
@@ -62,7 +65,9 @@ Usage:
 
 #### Accessing your cluster:
 
-You can grab your logon information directly from the deployment directory. If you left the defaults this will be in $HOME/clusters/hcp/<cluster_name>.
+You can grab your logon information directly from the deployment directory. If you left the defaults this will be in $HOME/clusters/hcp/<cluster_name>/cluster-info.txt.
+
+Additionally, the `kubeconfig` and `kubeadmin-password` files are under `$HOME/clusters/hcp/<cluster_name>/auth` directory
 
 Inside this directory will be a file with the following access information:
 
