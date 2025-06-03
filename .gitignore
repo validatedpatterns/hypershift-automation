@@ -1,3 +1,4 @@
 *.swp
 vars.yml
 requirements.yml
+*.vscode
