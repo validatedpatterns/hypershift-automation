@@ -6,13 +6,14 @@ destroy: false
 create_iam: false
 
 #Cluster Info - We use these to create/destroy clusters
-name: changeme_clustername
-domain: changeme_base_domain
-region: changeme_region
+name: changeme_clusterName
+domain: changeme_baseDomain
+region: changeme_region                       #defaults to us-east-1
+spread_across_availability_zones: false       #false deploys in single AZ, true=multiple availability zones
 
 #Cluster Characteristics - Describe how you want the cluster deployed
 replicas: 1
 instance_type: m5.xlarge
 #Setting to default uses the hosting-clusters version for the release-image. To deploy with a specific
-#version, define it below: x.y.z (4.15.29) 
+#version, define it below: x.y.z (4.15.29)
 image: default
