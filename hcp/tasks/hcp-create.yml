@@ -22,7 +22,8 @@
 # If version is set to default, use the version from the hostingcluster for the hostedcluster
 - name: "deploy | set hostedcluster version"
   ansible.builtin.shell:
-    oc get clusterversion -o jsonpath='{.items[*].spec.desiredUpdate.version}'
+    #oc get clusterversion -o jsonpath='{.items[*].spec.desiredUpdate.version}'
+    oc get clusterversion -o jsonpath='{.items[*].status.desired.version}'
   args:
     executable: "{{lookup('ansible.builtin.env', 'SHELL')}}"
   register: version

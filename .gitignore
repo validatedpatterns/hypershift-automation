@@ -2,3 +2,4 @@
 vars.yml
 requirements.yml
 *.vscode
+*sts-creds.json
