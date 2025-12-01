@@ -14,7 +14,7 @@ domain: aws.validatedpatterns.io
 # Note: domain is now defined at the top level and applies to all clusters
 clusters:
   # Example: Create 3 clusters with names cluster1-1, cluster1-2, cluster1-3
-  - name: laas
+  - name: cluster1
     count: 1  # Creates cluster1-1, cluster1-2, cluster1-3
     region: us-west-1
     spread_across_availability_zones: false
@@ -23,7 +23,7 @@ clusters:
     image: default  # Use "default" to use hosting cluster version, or specify like "4.15.29"
   
   # Example: Single cluster (no count specified)
-  - name: oaas
+  - name: cluster2
     count: 1
     region: us-west-2
     spread_across_availability_zones: false
