@@ -11,15 +11,15 @@ sts_creds:
   dir: "{{lookup('ansible.builtin.env','HOME')}}/.aws/sts-creds"
   file: sts-creds.json
 
+# Base domain - default value (can be overridden in vars.yml)
+domain: example.com
+
 #We need the role name set for both IAM tasks and Hosted Cluster management tasks
 iam:
   hcp_role_name: hypershift_cli_role
   hcp_policy_name: hypershift_cli_policy
   hcp_users: {}
     #- list of users to bind to IAM policy
-
-#Set multi-arch flag
-multiarch: 'false'
 
 #Validated Parameters 
 wait_timeout_seconds: 900        # Max time to wait (900 seconds = 15 minutes)

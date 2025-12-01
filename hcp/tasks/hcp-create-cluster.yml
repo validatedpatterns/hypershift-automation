@@ -1,0 +1,192 @@
+---
+# This file contains the tasks to:
+# 1. Create deployment directories
+# 2. Check for existing clusters
+# 3. Set cluster version
+# 4. Gather availability zones (if needed)
+# 5. Create the cluster using the `hcp` CLI
+# 6. Wait for cluster readiness
+# 7. Post-install tasks (kubeconfig, passwords, etc.)
+#
+# After restoring this file, clusters should be created. Based on your `vars.yml`:
+# - `cluster2-1` and `cluster2-2` should be created (they have `image: 4.18.28`, so they don't need kubeconfig)
+# - `jr-mctest-1` and `jr-mctest-2` will be skipped if kubeconfig is not available (they have `image: default`)
+#
+# If you want `jr-mctest` clusters to be created, either:
+# 1. Configure kubeconfig, or
+# 2. Change `image: default` to a specific version like `image: 4.18.28` in `vars.yml`
+
+# Create the deployment directory to store deployment artifacts
+- name: "deploy | create {{ hcp }} deployment directory for {{ cluster.name }}"
+  ansible.builtin.file:
+    state: directory
+    path: "{{ deployment_dir }}/{{ cluster.name }}/auth"
+    mode: 0755
+
+# Check for existing hostedcluster - this is not foolproof - other resources (cloud) may exist
+- name: "deploy | check if hostedcluster/{{ cluster.name }} already exists"
+  kubernetes.core.k8s_info:
+    api_version: hypershift.openshift.io/v1beta1
+    kind: HostedCluster
+    namespace: clusters
+    name: "{{ cluster.name }}"
+  register: hc
+  changed_when: hc.resources is defined and hc.resources | length > 0
+  failed_when: false  # Don't fail if kubeconfig is not available, just skip
+
+# Set the version for this cluster
+- name: "deploy | set hostedcluster version for {{ cluster.name }}"
+  set_fact:
+    cluster_version: "{{ default_version if cluster.image == 'default' else cluster.image }}"
+  when: 
+    - cluster.image == "default" or cluster.image is defined
+    - cluster.image != "default" or (default_version is defined)
+
+# If zones is true, get the list of availability zones and create a fact
+- name: "deploy | Gather information about all availability zones for {{ cluster.name }}"
+  amazon.aws.aws_az_info:
+    region: "{{ cluster.region }}"
+  register: az_info
+  when: cluster.spread_across_availability_zones | default(false)
+
+- name: "deploy | Set fact with availability zone names for {{ cluster.name }}"
+  set_fact:
+    zones: "{{ az_info.availability_zones | map(attribute='zone_name') | list |join(',')}}"
+  when: cluster.spread_across_availability_zones | default(false)
+
+# Create the hypershift cluster when create = true, the hc resource above is not changed and when destroy=false
+- name: "deploy | create cluster {{ cluster.name }}"
+  ansible.builtin.shell: >
+    hcp create cluster aws 
+    --name {{ cluster.name }} 
+    --node-pool-replicas {{ cluster.replicas }} 
+    --instance-type {{ cluster.instance_type }} 
+    --infra-id {{ cluster.name }} 
+    --base-domain {{ domain }}
+    --pull-secret {{ pull_secret_path }} 
+    --region {{ cluster.region }}
+    {% if cluster.spread_across_availability_zones | default(false) %}
+    --zones {{ zones }}
+    {% endif %}
+    {% if cluster.image == "default" %}
+    --release-image quay.io/openshift-release-dev/ocp-release:{{ default_version }}-x86_64
+    {% else %}
+    --release-image quay.io/openshift-release-dev/ocp-release:{{ cluster.image }}-x86_64
+    {% endif %}
+    --sts-creds {{ sts_creds.dir }}/{{ sts_creds.file }}
+    --role-arn {{ hcp_role_arn }}
+  args:
+    executable: "{{lookup('ansible.builtin.env', 'SHELL')}}"
+  async: 3600  # 1 hour timeout
+  poll: 0  # Start in parallel, don't wait
+  register: cluster_create_async
+  when: 
+    - create
+    - not (hc.resources is defined and hc.resources | length > 0)
+    - not destroy
+    - cluster.image != "default" or (default_version is defined)
+
+# Display the cluster information:
+- name: "deploy | Cluster Create Info for {{ cluster.name }}"
+  ansible.builtin.debug:
+    msg: |
+     "A cluster with the following information is being created:
+      name: {{ cluster.name }}
+      replicas: {{ cluster.replicas }}
+      instance-type: {{ cluster.instance_type }}
+      base-domain: {{ domain }}
+      region: {{ cluster.region }}
+      {% if cluster.spread_across_availability_zones | default(false) %}
+      zones: {{ zones }}
+      {% endif %}
+      {% if cluster.image != "default" %}
+      ocp_version: {{ cluster.image }}"
+      {% else %}
+      ocp_version: {{ default_version }}"
+      {%endif %}
+
+- name: "deploy | warn if skipping cluster with default image (kubeconfig not available)"
+  ansible.builtin.debug:
+    msg: "Skipping cluster {{ cluster.name }} - image: default requires kubeconfig to determine version"
+  when:
+    - create
+    - cluster.image == "default"
+    - default_version is not defined
+
+# Wait for cluster creation to complete
+- name: "deploy | wait for cluster {{ cluster.name }} creation to complete"
+  ansible.builtin.async_status:
+    jid: "{{ cluster_create_async.ansible_job_id }}"
+  register: cluster_create_result
+  until: cluster_create_result.finished
+  retries: 360  # 1 hour with 10 second intervals
+  delay: 10
+  when: cluster_create_async is defined
+
+# Update the wait task to use the async result
+- name: "deploy | wait for hostedcluster and nodepool to be ready for {{ cluster.name }} | this can take a while"
+  kubernetes.core.k8s_info:
+    name: "{{ cluster.name }}"
+    api_version: hypershift.openshift.io/v1beta1
+    kind: hostedcluster
+    namespace: clusters
+  register: hc_status
+  until:
+    - hc_status.resources is defined and hc_status.resources | length > 0
+    - hc_status.resources[0].status is defined
+    - hc_status.resources[0].status.version is defined
+    - hc_status.resources[0].status.version.history is defined
+    - "'Completed' in (hc_status.resources[0] | community.general.json_query('status.version.history[*].state'))"
+  retries: "{{ (wait_timeout_seconds / check_interval_seconds) | int }}"
+  delay: "{{ check_interval_seconds }}"
+  failed_when: false  # Don't fail if kubeconfig is not available
+  when: 
+    - cluster_create_async is defined
+    - cluster_create_result.finished | default(false)
+
+#Post-Deployment tasks
+- name: "post-install | create kubeconfig for {{ cluster.name }} cluster"
+  ansible.builtin.shell: |
+    hcp create kubeconfig --name {{ cluster.name }} > {{ deployment_dir }}/{{ cluster.name }}/auth/kubeconfig
+  args:
+    executable: "{{lookup('ansible.builtin.env', 'SHELL')}}"
+  when: cluster_create_async is defined
+
+- name: "post-install | get kubeadmin password secret for {{ cluster.name }} cluster"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: kubeadmin-password
+    namespace: "clusters-{{ cluster.name }}"
+  register: kubeadmin_secret_info
+  when: cluster_create_async is defined
+  failed_when: false  # Don't fail if kubeconfig is not available
+
+- name: "post-install | decode kubeadmin password for {{ cluster.name }}"
+  set_fact:
+    kubeadmin_secret: "{{ kubeadmin_secret_info.resources[0].data.password | b64decode }}"
+  when: 
+    - cluster_create_async is defined
+    - kubeadmin_secret_info.resources is defined
+    - kubeadmin_secret_info.resources | length > 0
+
+- name: "post-install | create kubeadmin secret artifact for {{ cluster.name }}"
+  ansible.builtin.copy:
+    content: "{{lookup('ansible.builtin.template', './templates/kubeadmin-password.j2')}}"
+    dest: "{{ deployment_dir }}/{{ cluster.name }}/auth/kubeadmin-password"
+  when: 
+    - cluster_create_async is defined
+    - kubeadmin_secret is defined
+
+- name: "post-install | create config file for {{ cluster.name }}"
+  ansible.builtin.copy:
+    content: "{{lookup('ansible.builtin.template', './templates/cluster-info.txt.j2')}}"
+    dest: "{{ deployment_dir }}/{{ cluster.name }}/cluster-info.txt"
+  when: cluster_create_async is defined
+  vars:
+    name: "{{ cluster.name }}"
+    region: "{{ cluster.region }}"
+    domain: "{{ domain }}"
+
+
+

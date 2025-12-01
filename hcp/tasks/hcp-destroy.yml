@@ -1,33 +1,11 @@
 - name: "destroy | Get the role ARN information"
   ansible.builtin.import_tasks: role-facts.yml
 
-- name: "destroy | remove cluster resources"
-  ansible.builtin.shell:
-    hcp destroy cluster aws \
-    --name {{ name }} \
-    --region {{ region }} \
-    --infra-id {{ name }} \
-    --base-domain {{ domain }} \
-    --role-arn {{ hcp_role_arn }} \
-    --sts-creds {{ sts_creds.dir }}/sts-creds.json \
-    --destroy-cloud-resources
-  args:
-    executable: "{{lookup('ansible.builtin.env', 'SHELL')}}"
-  when: destroy
-  register: cluster_destroy
-  until: "'Error: hostedcluster wasn\\'t finalized, aborting delete' not in cluster_destroy.stderr or cluster_destroy.rc == 0"
-  retries: 5 # You can adjust the number of retries
-  delay: 30 # Delay in seconds between retries (e.g., 30 seconds)
-  changed_when: "'Found hosted cluster' in cluster_destroy.stderr_lines or cluster_destroy.rc == 0" # Mark changed if destruction started or completed
-  failed_when: >
-    cluster_destroy.rc != 0 and
-    'Error: hostedcluster wasn\'t finalized, aborting delete' in cluster_destroy.stderr and
-    'No hosted cluster' in cluster_destroy.stderr 
-
-- name: "destroy | remove cluster configurations from filesystem"
-  ansible.builtin.file:
-    state: absent
-    path: "{{ deployment_dir }}/{{ name }}"
-  #when: destroy and cluster_destroy is changed
+# Loop over clusters and expand count inline - run in parallel
+- name: "destroy | remove cluster resources (parallel)"
+  include_tasks: hcp-destroy-cluster-expanded.yml
+  loop: "{{ clusters }}"
+  loop_control:
+    loop_var: cluster_item
   when: destroy
 

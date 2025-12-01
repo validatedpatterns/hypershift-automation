@@ -36,3 +36,23 @@ all: iam build ## Provision IAM resources and create a cluster
 #	@sudo dnf install -y ansible
 #	@ansible-galaxy collection install -r requirements.yml
 #	@curl -Lf -o /tmp/hcp-cli.tar.gz https://developers.redhat.com/content-gateway/file/pub/mce/clients/hcp-cli/2.6.2-7/hcp-cli-2.6.2-7-linux-amd64.tar.gz && tar xvf /tmp/hcp-cli.tar.g
+
+.PHONY: test
+test: ## Run all tests
+	@cd hcp/tests && bash run-tests.sh
+
+.PHONY: test-expand
+test-expand: ## Test cluster expansion logic
+	@ansible-playbook -i hcp/tests/inventory hcp/tests/test-expand-clusters.yml
+
+.PHONY: test-vars
+test-vars: ## Test variable validation
+	@ansible-playbook -i hcp/tests/inventory hcp/tests/test-variables.yml
+
+.PHONY: test-flow
+test-flow: ## Test task execution flow
+	@ansible-playbook -i hcp/tests/inventory hcp/tests/test-task-flow.yml
+
+.PHONY: test-integration
+test-integration: ## Run integration tests
+	@ansible-playbook -i hcp/tests/inventory hcp/tests/test-integration.yml

@@ -5,15 +5,28 @@ destroy: false
 #Create IAM
 create_iam: false
 
-#Cluster Info - We use these to create/destroy clusters
-name: changeme_clusterName
-domain: changeme_baseDomain
-region: changeme_region                       #defaults to us-east-1
-spread_across_availability_zones: false       #false deploys in single AZ, true=multiple availability zones
+# Base domain - constant for all clusters
+domain: aws.validatedpatterns.io
 
-#Cluster Characteristics - Describe how you want the cluster deployed
-replicas: 1
-instance_type: m5.xlarge
-#Setting to default uses the hosting-clusters version for the release-image. To deploy with a specific
-#version, define it below: x.y.z (4.15.29)
-image: default
+# Clusters list - Define multiple clusters with different characteristics
+# Each cluster can have its own region, instance_type, image (version), replicas, etc.
+# Use 'count' to create multiple clusters of the same type with auto-incremented names
+# Note: domain is now defined at the top level and applies to all clusters
+clusters:
+  # Example: Create 3 clusters with names cluster1-1, cluster1-2, cluster1-3
+  - name: cluster1
+    count: 1  # Creates cluster1-1, cluster1-2, cluster1-3
+    region: us-west-1
+    spread_across_availability_zones: false
+    replicas: 1
+    instance_type: m5.2xlarge
+    image: default  # Use "default" to use hosting cluster version, or specify like "4.15.29"
+  
+  # Example: Single cluster (no count specified)
+  - name: cluster2
+    count: 1
+    region: us-west-2
+    spread_across_availability_zones: false
+    replicas: 1
+    instance_type: m5.2xlarge
+    image: 4.18.28
