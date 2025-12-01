@@ -1,0 +1,72 @@
+---
+- name: Test cluster expansion logic
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    # Test data: clusters with and without count
+    clusters:
+      - name: test-cluster1
+        count: 3
+        region: us-east-1
+        replicas: 1
+        instance_type: m5.xlarge
+        image: default
+      - name: test-cluster2
+        region: us-west-2
+        replicas: 2
+        instance_type: m5.2xlarge
+        image: "4.15.29"
+      - name: test-cluster3
+        count: 1
+        region: eu-west-1
+        replicas: 1
+        instance_type: m5.large
+        image: default
+
+  tasks:
+    - name: Import expand-clusters task
+      ansible.builtin.import_tasks: ../tasks/expand-clusters.yml
+
+    - name: Verify expanded clusters count
+      ansible.builtin.assert:
+        that:
+          - clusters | length == 5  # 3 from cluster1, 1 from cluster2, 1 from cluster3
+        fail_msg: "Expected 5 clusters, got {{ clusters | length }}"
+        success_msg: "Cluster expansion successful: {{ clusters | length }} clusters"
+
+    - name: Verify cluster1 expansion
+      ansible.builtin.assert:
+        that:
+          - "'test-cluster1-1' in (clusters | map(attribute='name') | list)"
+          - "'test-cluster1-2' in (clusters | map(attribute='name') | list)"
+          - "'test-cluster1-3' in (clusters | map(attribute='name') | list)"
+        fail_msg: "Cluster1 expansion failed"
+        success_msg: "Cluster1 correctly expanded to 3 clusters"
+
+    - name: Verify cluster2 (no count) remains single
+      ansible.builtin.assert:
+        that:
+          - "'test-cluster2' in (clusters | map(attribute='name') | list)"
+          - "(clusters | selectattr('name', 'equalto', 'test-cluster2') | list | length) == 1"
+        fail_msg: "Cluster2 should remain as single cluster"
+        success_msg: "Cluster2 correctly remains as single cluster"
+
+    - name: Verify cluster3 (count=1) remains single
+      ansible.builtin.assert:
+        that:
+          - "'test-cluster3' in (clusters | map(attribute='name') | list)"
+          - "(clusters | selectattr('name', 'equalto', 'test-cluster3') | list | length) == 1"
+        fail_msg: "Cluster3 with count=1 should remain as single cluster"
+        success_msg: "Cluster3 correctly remains as single cluster"
+
+    - name: Verify all expanded clusters have required attributes
+      ansible.builtin.assert:
+        that:
+          - item.region is defined
+          - item.replicas is defined
+          - item.instance_type is defined
+          - item.image is defined
+        fail_msg: "Cluster {{ item.name }} is missing required attributes"
+        success_msg: "Cluster {{ item.name }} has all required attributes"
+      loop: "{{ clusters }}"

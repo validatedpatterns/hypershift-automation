@@ -1,0 +1,15 @@
+---
+# Expand a single cluster item if it has count > 1
+- name: "preflight | expand cluster {{ cluster_item.name }} with count {{ cluster_item.count }}"
+  set_fact:
+    expanded_clusters: "{{ expanded_clusters | default([]) + [cluster_item | combine({'name': cluster_item.name + '-' + (count_num | string)}, recursive=False)] }}"
+  loop: "{{ range(1, cluster_item.count | int + 1) | list }}"
+  loop_control:
+    loop_var: count_num
+  when: cluster_item.count is defined and cluster_item.count | int > 1
+
+# Add single cluster (no count or count=1)
+- name: "preflight | add single cluster {{ cluster_item.name }}"
+  set_fact:
+    expanded_clusters: "{{ expanded_clusters | default([]) + [cluster_item] }}"
+  when: cluster_item.count is not defined or cluster_item.count | int <= 1

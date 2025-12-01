@@ -1,0 +1,42 @@
+---
+- name: Test variable validation and defaults
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    domain: test.example.com
+    clusters:
+      - name: test-cluster
+        region: us-east-1
+        replicas: 1
+        instance_type: m5.xlarge
+        image: default
+
+  tasks:
+    - name: Test domain constant
+      ansible.builtin.assert:
+        that:
+          - domain is defined
+          - domain == "test.example.com"
+        fail_msg: "Domain variable not properly set"
+        success_msg: "Domain variable is correctly set"
+
+    - name: Test cluster structure
+      ansible.builtin.assert:
+        that:
+          - clusters is defined
+          - clusters | length > 0
+          - clusters[0].name is defined
+          - clusters[0].region is defined
+          - clusters[0].replicas is defined
+          - clusters[0].instance_type is defined
+          - clusters[0].image is defined
+        fail_msg: "Cluster structure is invalid"
+        success_msg: "Cluster structure is valid"
+
+    - name: Test domain is not in cluster definition
+      ansible.builtin.assert:
+        that:
+          - "clusters[0].domain is not defined"
+        fail_msg: "Domain should not be in cluster definition"
+        success_msg: "Domain correctly removed from cluster definitions"

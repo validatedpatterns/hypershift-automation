@@ -1,0 +1,49 @@
+---
+- name: Integration test for cluster management
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    create: false
+    destroy: false
+    domain: test.example.com
+    clusters:
+      - name: integration-test-1
+        count: 2
+        region: us-east-1
+        replicas: 1
+        instance_type: m5.xlarge
+        image: default
+        spread_across_availability_zones: false
+      - name: integration-test-2
+        region: us-west-2
+        replicas: 2
+        instance_type: m5.2xlarge
+        image: "4.15.29"
+        spread_across_availability_zones: true
+
+  tasks:
+    - name: Test cluster expansion
+      ansible.builtin.import_tasks: ../tasks/expand-clusters.yml
+
+    - name: Verify expansion results
+      ansible.builtin.assert:
+        that:
+          - clusters | length == 3  # 2 from integration-test-1, 1 from integration-test-2
+          - "'integration-test-1-1' in (clusters | map(attribute='name') | list)"
+          - "'integration-test-1-2' in (clusters | map(attribute='name') | list)"
+          - "'integration-test-2' in (clusters | map(attribute='name') | list)"
+        fail_msg: "Integration test failed: cluster expansion incorrect"
+        success_msg: "Integration test passed: all clusters expanded correctly"
+
+    - name: Verify domain is constant
+      ansible.builtin.assert:
+        that:
+          - domain is defined
+          - "domain not in (clusters | map(attribute='domain', default='') | list)"
+        fail_msg: "Domain should be constant, not in cluster definitions"
+        success_msg: "Domain is correctly constant"
+
+    - name: Display expanded clusters
+      ansible.builtin.debug:
+        var: clusters

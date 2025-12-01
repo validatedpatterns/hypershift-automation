@@ -1,0 +1,78 @@
+---
+# Check for existing hostedcluster before attempting destruction
+- name: "destroy | check if hostedcluster/{{ cluster.name }} exists"
+  kubernetes.core.k8s_info:
+    api_version: hypershift.openshift.io/v1beta1
+    kind: HostedCluster
+    namespace: clusters
+    name: "{{ cluster.name }}"
+  register: hc
+  changed_when: false
+  failed_when: false  # Don't fail if kubeconfig is not available
+
+# Destroy the hypershift cluster when destroy = true and the cluster exists
+- name: "destroy | destroy cluster {{ cluster.name }}"
+  ansible.builtin.shell: >
+    hcp destroy cluster aws
+    --name {{ cluster.name }}
+    --region {{ cluster.region }}
+    --sts-creds {{ sts_creds.dir }}/{{ sts_creds.file }}
+    --role-arn {{ hcp_role_arn }}
+  args:
+    executable: "{{lookup('ansible.builtin.env', 'SHELL')}}"
+  async: 3600  # 1 hour timeout
+  poll: 0  # Start in parallel, don't wait
+  register: cluster_destroy_async
+  when: 
+    - destroy
+    - hc.resources is defined
+    - hc.resources | length > 0
+
+# Wait for cluster destruction to complete
+- name: "destroy | wait for cluster {{ cluster.name }} destruction to complete"
+  ansible.builtin.async_status:
+    jid: "{{ (cluster_destroy_async | default({})).ansible_job_id | default('') }}"
+  register: cluster_destroy_result
+  until: cluster_destroy_result.finished
+  retries: 360  # 1 hour with 10 second intervals
+  delay: 10
+  failed_when: false  # Don't fail if jid is empty
+  when: 
+    - destroy
+    - cluster_destroy_async is defined
+    - (cluster_destroy_async | default({})).ansible_job_id is defined
+
+# Wait for hostedcluster to be deleted
+- name: "destroy | wait for hostedcluster {{ cluster.name }} to be deleted | this can take a while"
+  kubernetes.core.k8s_info:
+    name: "{{ cluster.name }}"
+    api_version: hypershift.openshift.io/v1beta1
+    kind: hostedcluster
+    namespace: clusters
+  register: hc_status
+  until: hc_status.resources is not defined or hc_status.resources | length == 0
+  retries: "{{ (wait_timeout_seconds / check_interval_seconds) | int }}"
+  delay: "{{ check_interval_seconds }}"
+  failed_when: false  # Don't fail if kubeconfig is not available
+  when: 
+    - destroy
+    - cluster_destroy_async is defined
+    - cluster_destroy_result.finished | default(false)
+
+# Clean up local deployment directory
+- name: "destroy | remove local deployment directory for {{ cluster.name }}"
+  ansible.builtin.file:
+    state: absent
+    path: "{{ deployment_dir }}/{{ cluster.name }}"
+  when: destroy
+
+# Display message if cluster doesn't exist
+- name: "destroy | warn if cluster {{ cluster.name }} does not exist"
+  ansible.builtin.debug:
+    msg: "Cluster {{ cluster.name }} does not exist, skipping destruction"
+  when:
+    - destroy
+    - hc.resources is not defined or hc.resources | length == 0
+
+
+

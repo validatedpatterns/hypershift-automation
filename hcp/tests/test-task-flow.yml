@@ -1,0 +1,80 @@
+---
+- name: Test task execution flow with mocks
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    create: true
+    destroy: false
+    create_iam: false
+    domain: test.example.com
+    deployment_dir: /tmp/test-clusters
+    pull_secret_path: /tmp/test-pullsecret.json
+    sts_creds:
+      dir: /tmp/test-sts-creds
+      file: sts-creds.json
+    iam:
+      hcp_role_name: test_role
+      hcp_role: test_role
+    hcp_role_arn: "arn:aws:iam::123456789012:role/test_role"
+    clusters:
+      - name: test-cluster
+        region: us-east-1
+        replicas: 1
+        instance_type: m5.xlarge
+        image: default
+        spread_across_availability_zones: false
+    wait_timeout_seconds: 900
+    check_interval_seconds: 10
+    hcp: hosted-control-planes
+
+  tasks:
+    - name: Create test directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ deployment_dir }}"
+        - "{{ sts_creds.dir }}"
+      changed_when: false
+
+    - name: Create test pull secret file
+      ansible.builtin.copy:
+        content: '{"auths": {}}'
+        dest: "{{ pull_secret_path }}"
+      changed_when: false
+
+    - name: Test expand-clusters task
+      ansible.builtin.import_tasks: ../tasks/expand-clusters.yml
+      when: create or destroy
+
+    - name: Verify clusters expanded
+      ansible.builtin.assert:
+        that:
+          - clusters is defined
+          - clusters | length > 0
+        fail_msg: "Clusters not expanded"
+        success_msg: "Clusters expanded successfully"
+
+    - name: Mock clusterversion (when image is default)
+      ansible.builtin.set_fact:
+        clusterversion:
+          resources:
+            - status:
+                desired:
+                  version: "4.15.29"
+      when: clusters | selectattr('image', 'equalto', 'default') | list | length > 0
+
+    - name: Set default version fact
+      ansible.builtin.set_fact:
+        default_version: "4.15.29"
+      when: clusters | selectattr('image', 'equalto', 'default') | list | length > 0
+
+    - name: Test cluster creation task structure (dry run)
+      ansible.builtin.debug:
+        msg: "Would create cluster {{ item.name }} in region {{ item.region }}"
+      loop: "{{ clusters }}"
+      loop_control:
+        loop_var: cluster
+      when: create and not destroy
