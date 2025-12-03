@@ -36,11 +36,28 @@
   until: cluster_destroy_result.finished
   retries: 360  # 1 hour with 10 second intervals
   delay: 10
-  failed_when: false  # Don't fail if jid is empty
+  failed_when: false  # Don't fail here - we'll check the result in the next step
   when: 
     - destroy
     - cluster_destroy_async is defined
     - (cluster_destroy_async | default({})).ansible_job_id is defined
+
+# Verify that the destroy command succeeded
+- name: "destroy | verify cluster {{ cluster.name }} destroy command succeeded"
+  ansible.builtin.fail:
+    msg: >
+      Failed to destroy cluster {{ cluster.name }}.
+      {% if cluster_destroy_result.finished | default(false) %}
+      Error: {{ cluster_destroy_result.msg | default('Unknown error') }}.
+      {% else %}
+      The destroy command did not complete within the timeout period (1 hour).
+      {% endif %}
+      Check the async job output for details.
+  when:
+    - destroy
+    - cluster_destroy_async is defined
+    - (cluster_destroy_async | default({})).ansible_job_id is defined
+    - not (cluster_destroy_result.finished | default(false) and not (cluster_destroy_result.failed | default(false)))
 
 # Wait for hostedcluster to be deleted
 - name: "destroy | wait for hostedcluster {{ cluster.name }} to be deleted | this can take a while"
@@ -53,11 +70,42 @@
   until: hc_status.resources is not defined or hc_status.resources | length == 0
   retries: "{{ (wait_timeout_seconds / check_interval_seconds) | int }}"
   delay: "{{ check_interval_seconds }}"
-  failed_when: false  # Don't fail if kubeconfig is not available
+  failed_when: >
+    hc_status.resources is defined
+    and hc_status.resources | length > 0
   when: 
     - destroy
     - cluster_destroy_async is defined
     - cluster_destroy_result.finished | default(false)
+    - not (cluster_destroy_result.failed | default(false))
+
+# Final verification that the cluster was actually deleted
+- name: "destroy | verify cluster {{ cluster.name }} was actually deleted"
+  kubernetes.core.k8s_info:
+    name: "{{ cluster.name }}"
+    api_version: hypershift.openshift.io/v1beta1
+    kind: HostedCluster
+    namespace: clusters
+  register: hc_final_check
+  changed_when: false
+  failed_when: false  # Don't fail if kubeconfig is not available, but check below
+  when:
+    - destroy
+    - cluster_destroy_async is defined
+    - cluster_destroy_result.finished | default(false)
+    - not (cluster_destroy_result.failed | default(false))
+
+# Fail if cluster still exists after deletion attempt
+- name: "destroy | fail if cluster {{ cluster.name }} still exists"
+  ansible.builtin.fail:
+    msg: "Cluster {{ cluster.name }} still exists after destroy attempt. The cluster may not have been fully deleted."
+  when:
+    - destroy
+    - cluster_destroy_async is defined
+    - cluster_destroy_result.finished | default(false)
+    - not (cluster_destroy_result.failed | default(false))
+    - hc_final_check.resources is defined
+    - hc_final_check.resources | length > 0
 
 # Clean up local deployment directory
 - name: "destroy | remove local deployment directory for {{ cluster.name }}"
