@@ -104,6 +104,7 @@
       {% else %}
       ocp_version: {{ default_version }}"
       {%endif %}
+  when: cluster.image != "default" or (default_version is defined)
 
 - name: "deploy | warn if skipping cluster with default image (kubeconfig not available)"
   ansible.builtin.debug:
@@ -121,7 +122,9 @@
   until: cluster_create_result.finished
   retries: 360  # 1 hour with 10 second intervals
   delay: 10
-  when: cluster_create_async is defined
+  when: 
+    - cluster_create_async is defined
+    - cluster_create_async.ansible_job_id is defined
 
 # Update the wait task to use the async result
 - name: "deploy | wait for hostedcluster and nodepool to be ready for {{ cluster.name }} | this can take a while"
@@ -142,6 +145,8 @@
   failed_when: false  # Don't fail if kubeconfig is not available
   when: 
     - cluster_create_async is defined
+    - cluster_create_async.ansible_job_id is defined
+    - cluster_create_result is defined
     - cluster_create_result.finished | default(false)
 
 #Post-Deployment tasks
@@ -182,7 +187,9 @@
   ansible.builtin.copy:
     content: "{{lookup('ansible.builtin.template', './templates/cluster-info.txt.j2')}}"
     dest: "{{ deployment_dir }}/{{ cluster.name }}/cluster-info.txt"
-  when: cluster_create_async is defined
+  when: 
+    - cluster_create_async is defined
+    - kubeadmin_secret is defined
   vars:
     name: "{{ cluster.name }}"
     region: "{{ cluster.region }}"
