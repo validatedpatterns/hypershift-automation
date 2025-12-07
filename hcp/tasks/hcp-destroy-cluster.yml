@@ -67,12 +67,21 @@
     kind: hostedcluster
     namespace: clusters
   register: hc_status
-  until: hc_status.resources is not defined or hc_status.resources | length == 0
+  until: >
+    hc_status.resources is not defined
+    or hc_status.resources | length == 0
+    or (
+      hc_status.resources is defined
+      and hc_status.resources | length > 0
+      and hc_status.resources[0].metadata.deletionTimestamp is defined
+      and (
+        hc_status.resources[0].metadata.finalizers is not defined
+        or hc_status.resources[0].metadata.finalizers | length == 0
+      )
+    )
   retries: "{{ (wait_timeout_seconds / check_interval_seconds) | int }}"
   delay: "{{ check_interval_seconds }}"
-  failed_when: >
-    hc_status.resources is defined
-    and hc_status.resources | length > 0
+  failed_when: false  # Don't fail here - we'll check the result in the next step
   when: 
     - destroy
     - cluster_destroy_async is defined
@@ -95,10 +104,21 @@
     - cluster_destroy_result.finished | default(false)
     - not (cluster_destroy_result.failed | default(false))
 
-# Fail if cluster still exists after deletion attempt
-- name: "destroy | fail if cluster {{ cluster.name }} still exists"
-  ansible.builtin.fail:
-    msg: "Cluster {{ cluster.name }} still exists after destroy attempt. The cluster may not have been fully deleted."
+# Check if cluster is stuck with finalizer but cloud resources are destroyed
+- name: "destroy | check if cluster {{ cluster.name }} is stuck with finalizer"
+  set_fact:
+    hc_stuck_with_finalizer: >
+      {{
+        hc_final_check.resources is defined
+        and hc_final_check.resources | length > 0
+        and hc_final_check.resources[0].metadata.deletionTimestamp is defined
+        and hc_final_check.resources[0].metadata.finalizers is defined
+        and hc_final_check.resources[0].metadata.finalizers | length > 0
+        and (
+          hc_final_check.resources[0].status.conditions is defined
+          and hc_final_check.resources[0].status.conditions | selectattr('type', 'equalto', 'CloudResourcesDestroyed') | selectattr('status', 'equalto', 'True') | list | length > 0
+        )
+      }}
   when:
     - destroy
     - cluster_destroy_async is defined
@@ -106,6 +126,67 @@
     - not (cluster_destroy_result.failed | default(false))
     - hc_final_check.resources is defined
     - hc_final_check.resources | length > 0
+
+# Attempt to remove finalizer if cloud resources are destroyed
+- name: "destroy | attempt to remove finalizer from stuck cluster {{ cluster.name }}"
+  ansible.builtin.shell: >
+    kubectl patch hostedcluster {{ cluster.name }} -n clusters
+    --type=json
+    -p='[{"op": "remove", "path": "/metadata/finalizers"}]'
+  args:
+    executable: "{{lookup('ansible.builtin.env', 'SHELL')}}"
+  register: hc_finalizer_removal
+  changed_when: hc_finalizer_removal.rc == 0
+  failed_when: false  # Don't fail if we can't remove the finalizer
+  when:
+    - destroy
+    - cluster_destroy_async is defined
+    - cluster_destroy_result.finished | default(false)
+    - not (cluster_destroy_result.failed | default(false))
+    - hc_stuck_with_finalizer | default(false)
+
+# Wait a bit more after removing finalizer
+- name: "destroy | wait for cluster {{ cluster.name }} to be deleted after finalizer removal"
+  kubernetes.core.k8s_info:
+    name: "{{ cluster.name }}"
+    api_version: hypershift.openshift.io/v1beta1
+    kind: HostedCluster
+    namespace: clusters
+  register: hc_post_finalizer_check
+  until: hc_post_finalizer_check.resources is not defined or hc_post_finalizer_check.resources | length == 0
+  retries: 30  # 5 minutes with 10 second intervals
+  delay: 10
+  failed_when: false
+  when:
+    - destroy
+    - cluster_destroy_async is defined
+    - cluster_destroy_result.finished | default(false)
+    - not (cluster_destroy_result.failed | default(false))
+    - hc_stuck_with_finalizer | default(false)
+    - hc_finalizer_removal.rc | default(1) == 0
+
+# Fail if cluster still exists after deletion attempt
+- name: "destroy | fail if cluster {{ cluster.name }} still exists"
+  ansible.builtin.fail:
+    msg: >
+      Cluster {{ cluster.name }} still exists after destroy attempt.
+      {% if hc_final_check.resources[0].metadata.deletionTimestamp is defined %}
+      The cluster is marked for deletion but may be stuck with a finalizer.
+      {% if hc_final_check.resources[0].status is defined and hc_final_check.resources[0].status.conditions is defined %}
+      Cloud resources status: {{ hc_final_check.resources[0].status.conditions | selectattr('type', 'equalto', 'CloudResourcesDestroyed') | map(attribute='status') | first | default('Unknown') }}.
+      {% endif %}
+      {% else %}
+      The cluster may not have been fully deleted.
+      {% endif %}
+      You may need to manually remove the finalizer or check the hypershift operator logs.
+  when:
+    - destroy
+    - cluster_destroy_async is defined
+    - cluster_destroy_result.finished | default(false)
+    - not (cluster_destroy_result.failed | default(false))
+    - hc_final_check.resources is defined
+    - hc_final_check.resources | length > 0
+    - not (hc_stuck_with_finalizer | default(false) and hc_finalizer_removal.rc | default(1) == 0)
 
 # Clean up local deployment directory
 - name: "destroy | remove local deployment directory for {{ cluster.name }}"
