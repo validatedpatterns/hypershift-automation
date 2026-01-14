@@ -50,6 +50,7 @@
 - name: Provision IAM Roles and Policies for HyperShift
   include_tasks: iam.yml
   when: create_iam
+  tags: iam
 
 - name: Create Hosted Control Plane Resources
   include_tasks: hcp-create.yml

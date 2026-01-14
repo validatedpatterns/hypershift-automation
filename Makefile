@@ -10,7 +10,7 @@ help:
 
 .PHONY: iam
 iam: ## Provision IAM roles and policies
-	ansible-playbook -e '@vars.yml' -e create=true site.yml
+	ansible-playbook -e '@vars.yml' -e create_iam=true --tags iam site.yml
 
 .PHONY: build
 build: ## Build a hosted (HyperShift) cluster
@@ -22,7 +22,7 @@ destroy: ## Destroy a hosted (HyperShift) cluster
 
 .PHONY: info
 info: ## Get the connection information for the managed cluster
-	@cat ~/clusters/hcp/${NAME}/cluster-info.txt
+	@cat ~/clusters/hcp/$(NAME)/cluster-info.txt
 
 .PHONY: get-clusters
 get-clusters: ## Get the hostedclusters
