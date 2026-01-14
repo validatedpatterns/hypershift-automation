@@ -1,29 +1,32 @@
 ---
-# Loop over the iam.hcp_users list to collect account information
-- name: "IAM | Get the user informtation "
-  amazon.aws.aws_user_info:
-  register: aws_user_info
-  loop:
-    - "{{ iam.hcp_users }}"
+- name: IAM tasks
+  tags: iam
+  block:
+    # Loop over the iam.hcp_users list to collect account information
+    - name: "IAM | Get the user information"
+      amazon.aws.iam_user_info:
+        name: "{{ item }}"
+      register: aws_user_info
+      loop: "{{ iam.hcp_users }}"
 
-# Set a fact for the user's ARN
-- name: "IAM | Set ARN for the User"
-  ansible.builtin.set_fact:
-     arn: "{{ aws_user_info.results |map(attribute='iam_users')| flatten |map(attribute='arn') }}"
+    # Set a fact for the user's ARN
+    - name: "IAM | Set ARN for the User"
+      ansible.builtin.set_fact:
+         arn: "{{ aws_user_info.results |map(attribute='iam_users')| flatten |map(attribute='arn') }}"
 
-# Create IAM role
-- name: "IAM | Create IAM role for the {{ hcp }} cli"
-  amazon.aws.iam_role:
-    name: "{{ iam.hcp_role_name }}"
-    assume_role_policy_document: "{{ lookup('ansible.builtin.template', './templates/assume-role-policy.json.j2')}}"
-    state: present
-  register: assume_policy
+    # Create IAM role
+    - name: "IAM | Create IAM role for the {{ hcp }} cli"
+      amazon.aws.iam_role:
+        name: "{{ iam.hcp_role_name }}"
+        assume_role_policy_document: "{{ lookup('ansible.builtin.template', './templates/assume-role-policy.json.j2')}}"
+        state: present
+      register: assume_policy
 
-# Create policy from template
-- name: "IAM | Create {{ iam.hcp_policy_name }} IAM policy"
-  amazon.aws.iam_policy:
-    policy_name: "{{ iam.hcp_policy_name }}"
-    iam_name: "{{ iam.hcp_role_name }}"
-    iam_type: role
-    policy_json: "{{lookup('ansible.builtin.template', './templates/policy.json.j2')}}"
-    state: present
+    # Create policy from template
+    - name: "IAM | Create {{ iam.hcp_policy_name }} IAM policy"
+      amazon.aws.iam_policy:
+        policy_name: "{{ iam.hcp_policy_name }}"
+        iam_name: "{{ iam.hcp_role_name }}"
+        iam_type: role
+        policy_json: "{{lookup('ansible.builtin.template', './templates/policy.json.j2')}}"
+        state: present
