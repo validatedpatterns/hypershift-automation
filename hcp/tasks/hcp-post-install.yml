@@ -1,0 +1,25 @@
+# The iam.hcp_role_name must exist for this to succeed
+- name: "preflight | Get the {{ iam.hcp_role }} ARN"
+  ansible.builtin.import_tasks: role-facts.yml
+
+# Check if kubeconfig is needed
+- name: "preflight | check if kubeconfig is needed"
+  set_fact:
+    need_kubeconfig: "{{ clusters | selectattr('image', 'equalto', 'default') | list | length > 0 }}"
+  when: post_install
+
+- name: "deploy | warn if kubeconfig not available and default image is used"
+  ansible.builtin.debug:
+    msg: "WARNING: Kubeconfig not available. Clusters with image: default will be skipped. Please configure kubeconfig or use a specific image version."
+  when:
+    - post_install
+    - need_kubeconfig | default(false)
+
+
+# Loop over clusters and expand count inline - run in parallel
+- name: "deploy | create clusters (parallel)"
+  include_tasks: "hcp-create-kubeconfig.yml"
+  loop: "{{ clusters }}"
+  loop_control:
+    loop_var: cluster
+  when: post_install

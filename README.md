@@ -53,6 +53,7 @@ Usage:
   make <target>
   iam               Provision IAM roles and policies
   build             Build a hosted (HyperShift) cluster
+  post-install      Get kubeconfig and kubeadmin-password for a cluster
   destroy           Destroy a hosted (HyperShift) cluster
   info              Get the connection information for the managed cluster
   get-clusters      Get the hostedclusters
