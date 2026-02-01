@@ -1,5 +1,9 @@
-#Actions -e create=true "creates a cluster" -e destroy=true  "destroys a cluster"
+#Actions:
+#  -e create=true "creates a cluster"
+#  -e post_install=true "create kubeconfig and kubeadmin-password for a cluster"
+#  -e destroy=true  "destroys a cluster"
 create: {}
+post_install: {}
 destroy: {}
 
 #Cluster Info - We use these to create/destroy clusters

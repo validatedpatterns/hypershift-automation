@@ -28,6 +28,10 @@ info: ## Get the connection information for the managed cluster
 get-clusters: ## Get the hostedclusters
 	@oc get hc -n clusters
 
+.PHONY: post-install
+post-install: ## Get kubeconfig, passwords, etc.
+	ansible-playbook -e '@vars.yml' -e post_install=true site.yml
+
 .PHONY: all
 all: iam build ## Provision IAM resources and create a cluster
 

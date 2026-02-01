@@ -150,50 +150,7 @@
     - cluster_create_result.finished | default(false)
 
 #Post-Deployment tasks
-- name: "post-install | create kubeconfig for {{ cluster.name }} cluster"
-  ansible.builtin.shell: |
-    hcp create kubeconfig --name {{ cluster.name }} > {{ deployment_dir }}/{{ cluster.name }}/auth/kubeconfig
-  args:
-    executable: "{{lookup('ansible.builtin.env', 'SHELL')}}"
-  when: cluster_create_async is defined
-
-- name: "post-install | get kubeadmin password secret for {{ cluster.name }} cluster"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Secret
-    name: kubeadmin-password
-    namespace: "clusters-{{ cluster.name }}"
-  register: kubeadmin_secret_info
-  when: cluster_create_async is defined
-  failed_when: false  # Don't fail if kubeconfig is not available
-
-- name: "post-install | decode kubeadmin password for {{ cluster.name }}"
-  set_fact:
-    kubeadmin_secret: "{{ kubeadmin_secret_info.resources[0].data.password | b64decode }}"
-  when: 
+- name: "Import create-kubeconfig task"
+  ansible.builtin.import_tasks: "hcp-create-kubeconfig.yml"
+  when:
     - cluster_create_async is defined
-    - kubeadmin_secret_info.resources is defined
-    - kubeadmin_secret_info.resources | length > 0
-
-- name: "post-install | create kubeadmin secret artifact for {{ cluster.name }}"
-  ansible.builtin.copy:
-    content: "{{lookup('ansible.builtin.template', './templates/kubeadmin-password.j2')}}"
-    dest: "{{ deployment_dir }}/{{ cluster.name }}/auth/kubeadmin-password"
-  when: 
-    - cluster_create_async is defined
-    - kubeadmin_secret is defined
-
-- name: "post-install | create config file for {{ cluster.name }}"
-  ansible.builtin.copy:
-    content: "{{lookup('ansible.builtin.template', './templates/cluster-info.txt.j2')}}"
-    dest: "{{ deployment_dir }}/{{ cluster.name }}/cluster-info.txt"
-  when: 
-    - cluster_create_async is defined
-    - kubeadmin_secret is defined
-  vars:
-    name: "{{ cluster.name }}"
-    region: "{{ cluster.region }}"
-    domain: "{{ domain }}"
-
-
-

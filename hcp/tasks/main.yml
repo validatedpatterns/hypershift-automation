@@ -56,6 +56,10 @@
   include_tasks: hcp-create.yml
   when: create
 
+- name: Get kubeconfig, passwords, etc.
+  include_tasks: hcp-post-install.yml
+  when: post_install
+
 - name: Destroy Hosted Control Plane Resources
   include_tasks: hcp-destroy.yml
   when: destroy
