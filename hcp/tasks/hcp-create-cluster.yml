@@ -65,6 +65,15 @@
     --base-domain {{ domain }}
     --pull-secret {{ pull_secret_path }} 
     --region {{ cluster.region }}
+    {% if cluster.cluster_cidr is defined %}
+    --cluster-cidr "[ {{ cluster.cluster_cidr }} ]"
+    {% endif %}
+    {% if cluster.machine_cidr is defined %}
+    --machine-cidr "[ {{ cluster.machine_cidr }} ]"
+    {% endif %}
+    {% if cluster.service_cidr is defined %}
+    --service-cidr "[ {{ cluster.service_cidr }} ]"
+    {% endif %}
     {% if cluster.spread_across_availability_zones | default(false) %}
     --zones {{ zones }}
     {% endif %}
@@ -104,6 +113,16 @@
       {% else %}
       ocp_version: {{ default_version }}"
       {%endif %}
+      {% if cluster.cluster_cidr is defined %}
+      cluster-cidr: {{ cluster.cluster_cidr }}
+      {% endif %}
+      {% if cluster.machine_cidr is defined %}
+      machine-cidr: "{{ cluster.machine_cidr }}"
+      {% endif %}
+      {% if cluster.service_cidr is defined %}
+      service-cidr: "{{ cluster.service_cidr }}"
+      {% endif %}
+
   when: cluster.image != "default" or (default_version is defined)
 
 - name: "deploy | warn if skipping cluster with default image (kubeconfig not available)"
