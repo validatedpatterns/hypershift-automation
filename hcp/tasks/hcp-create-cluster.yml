@@ -74,6 +74,9 @@
     {% if cluster.service_cidr is defined %}
     --service-cidr "[ {{ cluster.service_cidr }} ]"
     {% endif %}
+    {% if cluster.vpc_cidr is defined %}
+    --vpc-cidr "{{ cluster.vpc_cidr }}"
+    {% endif %}
     {% if cluster.spread_across_availability_zones | default(false) %}
     --zones {{ zones }}
     {% endif %}
@@ -121,6 +124,9 @@
       {% endif %}
       {% if cluster.service_cidr is defined %}
       service-cidr: "{{ cluster.service_cidr }}"
+      {% endif %}
+      {% if cluster.vpc_cidr is defined %}
+      vpc_cidr: "{{ cluster.vpc_cidr }}"
       {% endif %}
 
   when: cluster.image != "default" or (default_version is defined)
