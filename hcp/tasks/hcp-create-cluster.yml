@@ -66,13 +66,13 @@
     --pull-secret {{ pull_secret_path }} 
     --region {{ cluster.region }}
     {% if cluster.cluster_cidr is defined %}
-    --cluster-cidr "[ {{ cluster.cluster_cidr }} ]"
+    --cluster-cidr "{{ cluster.cluster_cidr }}"
     {% endif %}
     {% if cluster.machine_cidr is defined %}
-    --machine-cidr "[ {{ cluster.machine_cidr }} ]"
+    --machine-cidr "{{ cluster.machine_cidr }}"
     {% endif %}
     {% if cluster.service_cidr is defined %}
-    --service-cidr "[ {{ cluster.service_cidr }} ]"
+    --service-cidr "{{ cluster.service_cidr }}"
     {% endif %}
     {% if cluster.vpc_cidr is defined %}
     --vpc-cidr "{{ cluster.vpc_cidr }}"
