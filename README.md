@@ -3,7 +3,9 @@
 This is an ansible playbook that creates IAM roles/policies and deploys/destroys hypershift clusters
 
 ### Prerequisites | Assumptions
+
 This automation makes certain assumptions:
+
 1. Existing openshift cluster with multicluster-engine configured with hypershift feature enabled
 1. Ansible is installed on your system, with kuberenetes.core collections
 1. `oc` and `hcp` binaries installed and in your path
@@ -12,36 +14,37 @@ This automation makes certain assumptions:
 
 ### Configurable Variables
 
-This list of variables are for the cluster lifecycle. 
+This list of variables are for the cluster lifecycle.
 
-| parameter | default | description |
-|-----------|---------|-------------|
-| create    | false   | set true to create cluster |
-| destroy   | false   | set true to destroy cluster |
-| create_iam | false | set true to create iam roles and policies | 
-| name | `hcpdflt` | cluster name (also used for infraID) |
-| replicas | `1` | Number of machines to create |
-| instance_type | `m5.xlarge` | AWS Machine type |
-| domain | `example.com` | base domain for route53 and cluster deployment |
-| region | `us-west-2` | default region to deploy resources |
-| image | `latest` | OpenShift version to deploy |
-| spread_across_availability_zones | `false` | Single or Multiple availability zone deployment |
+| parameter                        | default       | description                                     |
+| -------------------------------- | ------------- | ----------------------------------------------- |
+| create                           | false         | set true to create cluster                      |
+| destroy                          | false         | set true to destroy cluster                     |
+| create_iam                       | false         | set true to create iam roles and policies       |
+| add_nodepool                     | false         | set true to add a nodepool to a hosted cluster  |
+| name                             | `hcpdflt`     | cluster name (also used for infraID)            |
+| replicas                         | `1`           | Number of machines to create                    |
+| instance_type                    | `m5.xlarge`   | AWS Machine type                                |
+| domain                           | `example.com` | base domain for route53 and cluster deployment  |
+| region                           | `us-west-2`   | default region to deploy resources              |
+| image                            | `latest`      | OpenShift version to deploy                     |
+| spread_across_availability_zones | `false`       | Single or Multiple availability zone deployment |
 
-### Default Variables 
+### Default Variables
 
 These variables are default names and paths to various things required for deploying clusters
 
-| variable | default | description |
-|----------|---------|-------------|
-| hcp | hosted-control-planes | Generic label |
-| gather_facts | false | speed ansible up |
-| deployment_dir | `{{lookup('ansible.builtin.env','HOME')}}/clusters/hcp` | Creates an artifact directory in $HOME |
-| pull_secret_path | `{{lookup('ansible.builtin.env', 'HOME')}}/.pullsecret.json` | Looks for pull secret in $HOME/.pullsecret.json |
-| sts_creds | dir: `{{lookup('ansible.builtin.env','HOME')}}/.aws/sts-creds` <br /> file: `sts-creds.json` | Creates creds directory in $HOME <br /> Name of the sts config file |
-| iam | hcp_role_name: `hypershift_cli_role` <br /> hcp_policy_name: `hypershift_cli_policy` <br /> hcp_users: `{}` | Name of the role for building/destroying clusters <br /> Name of the policy associated with the role <br /> List of users to bind to the role so they can build/destroy clusters |
-| multiarch | false | requires the use of a multiarch image |
-| wait_timeout_seconds | Max time to wait (900 seconds = 15 minutes) |
-| check_interval_seconds | How often to poll the resource status |
+| variable               | default                                                                                                     | description                                                                                                                                                                      |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| hcp                    | hosted-control-planes                                                                                       | Generic label                                                                                                                                                                    |
+| gather_facts           | false                                                                                                       | speed ansible up                                                                                                                                                                 |
+| deployment_dir         | `{{lookup('ansible.builtin.env','HOME')}}/clusters/hcp`                                                     | Creates an artifact directory in $HOME                                                                                                                                           |
+| pull_secret_path       | `{{lookup('ansible.builtin.env', 'HOME')}}/.pullsecret.json`                                                | Looks for pull secret in $HOME/.pullsecret.json                                                                                                                                  |
+| sts_creds              | dir: `{{lookup('ansible.builtin.env','HOME')}}/.aws/sts-creds` <br /> file: `sts-creds.json`                | Creates creds directory in $HOME <br /> Name of the sts config file                                                                                                              |
+| iam                    | hcp_role_name: `hypershift_cli_role` <br /> hcp_policy_name: `hypershift_cli_policy` <br /> hcp_users: `{}` | Name of the role for building/destroying clusters <br /> Name of the policy associated with the role <br /> List of users to bind to the role so they can build/destroy clusters |
+| multiarch              | false                                                                                                       | requires the use of a multiarch image                                                                                                                                            |
+| wait_timeout_seconds   | Max time to wait (900 seconds = 15 minutes)                                                                 |
+| check_interval_seconds | How often to poll the resource status                                                                       |
 
 ### Usage
 
@@ -56,11 +59,12 @@ Usage:
   destroy           Destroy a hosted (HyperShift) cluster
   info              Get the connection information for the managed cluster
   get-clusters      Get the hostedclusters
+  add-nodepool      Add nodes to an existing hosted cluster
 ```
 
 #### Build a cluster
 
-1. Update vars.yml 
+1. Update vars.yml
 1. `make build`
 
 #### Accessing your cluster:
@@ -89,8 +93,7 @@ The kubeconfig is on the local filesystem: export KUBECONFIG=/home/jrickard/clus
 
 #### Destroy a cluster
 
-`make destroy` 
-
+`make destroy`
 
 #### Create IAM role and policy
 
@@ -99,3 +102,12 @@ The kubeconfig is on the local filesystem: export KUBECONFIG=/home/jrickard/clus
 #### List the existing clusters running:
 
 `make get-clusters`
+
+#### Add a nodepool to an existing cluster:
+
+```bash
+export HOSTED_CLUSTER=my-hosted-cluster
+export INSTANCE_TYPE=g6.xlarge
+export TAINTS='[{"effect":"NoSchedule","key":"nvidia.com/gpu","value":"true"}]'
+make add-nodepool
+```
