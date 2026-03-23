@@ -35,6 +35,10 @@ post-install: ## Get kubeconfig, passwords, etc.
 .PHONY: all
 all: iam build ## Provision IAM resources and create a cluster
 
+.PHONY: add-nodepool
+add-nodepool: ## Add nodes to an existing hosted cluster
+	ansible-playbook -e '@vars.yml' -e add_nodepool=true site.yml
+
 #.PHONY local-setup
 #local-setup: ## Configure local machine
 #	@sudo dnf install -y ansible

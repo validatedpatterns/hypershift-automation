@@ -1,9 +1,12 @@
-#Actions -e create=true "creates a cluster" -e destroy=true  "destroys a cluster"
+# Actions -e create=true "creates a cluster" -e destroy=true  "destroys a cluster"
 create: false
 destroy: false
 
-#Create IAM
+# Create IAM
 create_iam: false
+
+# Add a nodepool to an existing hosted cluster
+add_nodepool: false
 
 # Base domain - constant for all clusters
 domain: aws.validatedpatterns.io
@@ -19,11 +22,11 @@ clusters:
     region: us-west-1
   # If true, this will use all available availability zones in a specific region and will create the number of replicas per availability zone
   # Example: us-west-1a, us-west-1b would have 1 replica provisioned in each availability zone
-    spread_across_availability_zones: false 
+    spread_across_availability_zones: false
     replicas: 1
     instance_type: m5.2xlarge
     image: default  # Use "default" to use hosting cluster version, or specify like "4.15.29"
-  
+
   # Example: Single cluster in a single availability zone
   - name: cluster2
     count: 1

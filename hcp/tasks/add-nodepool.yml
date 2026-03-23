@@ -1,0 +1,103 @@
+- name: "add-nodepool | Hosting cluster validation"
+  block:
+  - name: "add-nodepool | Get hosted clusters"
+    kubernetes.core.k8s_info:
+      api_version: hypershift.openshift.io/v1beta1
+      kind: HostedCluster
+      namespace: clusters
+    register: clusters_info
+
+  - name: "add-nodepool | Assert we are logged into hosting cluster"
+    ansible.builtin.assert:
+      that: clusters_info.api_found
+      fail_msg: >-
+        You must be logged into the hosting (not the hosted) cluster to add nodes.
+
+  - name: "add-nodepool | Parse hosted cluster names"
+    ansible.builtin.set_fact:
+      cluster_names: >-
+        {{ clusters_info.resources | map(attribute='metadata.name') | list }}
+
+  - name: "add-nodepool | Print found clusters"
+    ansible.builtin.debug:
+      msg: >-
+        {{ cluster_names }}
+
+- name: "add-nodepool | Hosted cluster validation"
+  block:
+  - name: "add-nodepool | Resolve hosted_cluster variable"
+    ansible.builtin.set_fact:
+      hosted_cluster: >-
+        {{ hosted_cluster | default(lookup('env', 'HOSTED_CLUSTER'), true) }}
+
+  - name: "add-nodepool | Assert hosted_cluster variable is resolved"
+    ansible.builtin.assert:
+      that: hosted_cluster | length > 0
+      fail_msg: >-
+        The hosted cluster to add nodes to must be specified by the variable hosted_cluster or the environment variable HOSTED_CLUSTER.
+
+  - name: "add-nodepool | Assert that the hosting cluster contains '{{ hosted_cluster }}'"
+    ansible.builtin.assert:
+      that: hosted_cluster in cluster_names
+      fail_msg: >-
+        The hosted cluster '{{ hosted_cluster }}' does not exist on your hypershift cluster.
+
+  - name: "add-nodepool | Get all nodepools"
+    kubernetes.core.k8s_info:
+      api_version: hypershift.openshift.io/v1beta1
+      kind: NodePool
+      namespace: clusters
+    register: nodepools_info
+
+  - name: "add-nodepool | Filter out the nodepools for '{{ hosted_cluster }}'"
+    ansible.builtin.set_fact:
+      _filtered_nodepools: >-
+        {{ nodepools_info.resources | selectattr('spec.clusterName', 'equalto', hosted_cluster) | list }}
+
+  - name: "add-nodepool | Assert that a nodepool was found for '{{ hosted_cluster }}'"
+    ansible.builtin.assert:
+      that: _filtered_nodepools | length > 0
+      fail_msg: >-
+        {{ hosted_cluster }} has no nodepools.
+
+  - name: "add-nodepool | Set hc_nodepool variable"
+    ansible.builtin.set_fact:
+      hc_nodepool: >-
+        {{ _filtered_nodepools | first }}
+
+- name: "add-nodepool | Get platform"
+  block:
+  - name: "add-nodepool | Get platform for '{{ hosted_cluster }}'"
+    ansible.builtin.set_fact:
+      _platforms: >-
+        {{
+          clusters_info.resources
+            | selectattr('metadata.name', 'equalto', hosted_cluster)
+            | map(attribute='spec.platform.type')
+            | list
+        }}
+
+  - name: "add-nodepool | Assert platform name was found for '{{ hosted_cluster }}'"
+    ansible.builtin.assert:
+      that:
+        - _platforms is defined
+        - _platforms | length == 1
+        - _platforms | first is defined
+        - _platforms | first | length > 0
+      fail_msg: >-
+        Expected to find a single, valid platform for '{{ hosted_cluster }}''
+
+  - name: "add-nodepool | Set platform variable"
+    ansible.builtin.set_fact:
+      platform: >-
+        {{ _platforms | first }}
+
+- name: "add-nodepool | AWS Specific"
+  when: platform == "AWS"
+  include_tasks: add-nodepool-aws.yml
+
+- name: "add-nodepool | Other platform"
+  when: platform != "AWS"
+  ansible.builtin.fail:
+    msg: >-
+      Adding a new nodepool is currently only supported on AWS, your cluster is running on '{{ platform }}'.

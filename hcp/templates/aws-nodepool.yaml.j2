@@ -1,0 +1,36 @@
+apiVersion: hypershift.openshift.io/v1beta1
+kind: NodePool
+metadata:
+  name: {{ hosted_cluster }}-{{ name_suffix }}
+  namespace: clusters
+  ownerReferences: {{ owner_references }}
+spec:
+  arch: {{ arch }}
+  clusterName: {{ hosted_cluster }}
+  management:
+    autoRepair: false
+    replace:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+      strategy: RollingUpdate
+    upgradeType: Replace
+  nodeDrainTimeout: 0s
+  nodeVolumeDetachTimeout: 0s
+{% if taints is defined and taints | length > 0 %}
+  taints:
+{{ taints | to_nice_yaml(indent=2) | indent(4, first=True) }}
+{% endif %}
+  platform:
+    aws:
+      instanceProfile: {{ hosted_cluster }}-worker
+      instanceType: {{ instance_type }}
+      rootVolume:
+        size: {{ storage_size }}
+        type: gp3
+      subnet:
+        id: {{ subnet }}
+    type: AWS
+  release:
+    image: {{ image }}
+  replicas: {{ replicas }}

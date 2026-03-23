@@ -1,20 +1,20 @@
 ---
 # tasks file for hcp
 # Validate everything exists first
-# 
+#
 - name: "validate  | check for oc binary"
   ansible.builtin.shell:
-    cmd: which oc 
-  register: oc 
+    cmd: which oc
+  register: oc
   changed_when: false
-  failed_when: oc.rc != 0  
+  failed_when: oc.rc != 0
 
 - name: "validate | check for hcp binary"
   ansible.builtin.shell:
     cmd: which hcp
   register: hcp
   changed_when: false
-  failed_when: hcp.rc != 0  
+  failed_when: hcp.rc != 0
 
 - name: "validate | check for existence of {{ pull_secret_path }}"
   ansible.builtin.stat:
@@ -63,3 +63,7 @@
 - name: Destroy Hosted Control Plane Resources
   include_tasks: hcp-destroy.yml
   when: destroy
+
+- name: Add Nodes to Hosted Cluster
+  include_tasks: add-nodepool.yml
+  when: add_nodepool

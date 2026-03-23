@@ -1,0 +1,110 @@
+- name: "add-nodepool-aws | Resolve nodepool template variables"
+  block:
+  - name: "add-nodepool-aws | Resolve name_suffix"
+    ansible.builtin.set_fact:
+      name_suffix: >-
+        {{
+          name_suffix
+            | default(lookup('env', 'NAME_SUFFIX'), true)
+            | default('added-nodepool', true)
+        }}
+
+  - name: "add-nodepool-aws | Resolve owner_references"
+    ansible.builtin.set_fact:
+      owner_references: >-
+        {{ hc_nodepool.metadata.ownerReferences }}
+
+  - name: "add-nodepool-aws | Resolve arch"
+    ansible.builtin.set_fact:
+      arch: >-
+        {{
+          arch
+            | default(lookup('env', 'ARCH'), true)
+            | default('amd64', true)
+        }}
+
+  - name: "add-nodepool-aws | Resolve storage_size"
+    ansible.builtin.set_fact:
+      storage_size: >-
+        {{
+          storage_size
+            | default(lookup('env', 'STORAGE_SIZE'), true)
+            | default('120', true)
+            | int
+        }}
+
+  - name: "add-nodepool-aws | Resolve subnet"
+    ansible.builtin.set_fact:
+      subnet: >-
+        {{ hc_nodepool.spec.platform.aws.subnet.id }}
+
+  - name: "add-nodepool-aws | Resolve image"
+    ansible.builtin.set_fact:
+      image: >-
+        {{ hc_nodepool.spec.release.image }}
+
+  - name: "add-nodepool-aws | Resolve replicas"
+    ansible.builtin.set_fact:
+      replicas: >-
+        {{
+          replicas
+            | default(lookup('env', 'REPLICAS'), true)
+            | default('1', true)
+            | int
+        }}
+
+  - name: "add-nodepool-aws | Resolve taints"
+    ansible.builtin.set_fact:
+      taints: >-
+        {{
+          taints
+            | default(lookup('env', 'TAINTS'), true)
+        }}
+
+  - name: "add-nodepool-aws | Resolve instance_type"
+    ansible.builtin.set_fact:
+      instance_type: >-
+        {{
+          instance_type
+            | default(lookup('env', 'INSTANCE_TYPE'), true)
+        }}
+
+  - name:  "add-nodepool-aws | Assert instance_type is set"
+    ansible.builtin.assert:
+      that: instance_type | length > 0
+      fail_msg: >-
+        Instance type must be specified by the variable instance_type or the environment variable INSTANCE_TYPE.
+
+- name: "add-nodepool-aws | Template the nodepool to be added"
+  block:
+  - name: "add-nodepool-aws | Create tempfile"
+    ansible.builtin.tempfile:
+      prefix: aws-nodepool
+      suffix: yaml
+    register: _temp_file
+
+  - name: "add-nodepool-aws | Render nodepool template to tempfile"
+    ansible.builtin.template:
+      src: templates/aws-nodepool.yaml.j2
+      dest: "{{ _temp_file.path }}"
+
+  - name: "add-nodepool-aws | Read rendered nodepool resource"
+    ansible.builtin.include_vars:
+      file: "{{ _temp_file.path }}"
+      name: _rendered_yaml
+
+  - name: "add-nodepool-aws | Print rendered nodepool"
+    ansible.builtin.debug:
+      msg: >-
+        {{ _rendered_yaml | to_nice_yaml(indent=2) }}
+
+  - name: "add-nodepool-aws | Apply nodepool to hosting cluster (if not present)"
+    kubernetes.core.k8s:
+      state: present
+      src: "{{ _temp_file.path }}"
+
+  always:
+  - name: "add-nodepool-aws | Delete tempfile"
+    ansible.builtin.file:
+      path: "{{ _temp_file.path }}"
+      state: absent
