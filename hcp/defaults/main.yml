@@ -1,8 +1,12 @@
 #Set hosted control plane var
 hcp: hosted-control-planes
 
-#Set gather_facts to false to speed up playbook execution
-gather_facts: false
+# Action flags - override via Makefile targets or -e '{"create": true}'
+create: false
+destroy: false
+create_iam: false
+post_install: false
+add_nodepool: false
 
 #Set default locations for cluster and cloud artifacts
 deployment_dir: "{{lookup('ansible.builtin.env','HOME')}}/clusters/hcp"

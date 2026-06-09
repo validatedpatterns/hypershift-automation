@@ -5,6 +5,8 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROLE_DIR="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(dirname "$ROLE_DIR")"
+export ANSIBLE_CONFIG="$PROJECT_ROOT/ansible.cfg"
 
 echo "Running HyperShift automation tests..."
 echo "======================================"
