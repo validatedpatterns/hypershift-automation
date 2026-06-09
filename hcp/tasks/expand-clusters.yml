@@ -1,11 +1,16 @@
 ---
 # Expand clusters that have a count parameter into individual cluster definitions
+- name: "preflight | create temp file for cluster expansion"
+  ansible.builtin.tempfile:
+    prefix: clusters_expand_
+    suffix: .json
+  register: temp_file
+
 - name: "preflight | write clusters to temp file"
   ansible.builtin.copy:
     content: "{{ clusters | to_json }}"
-    dest: "/tmp/clusters_expand_{{ ansible_date_time.epoch }}.json"
+    dest: "{{ temp_file.path }}"
     mode: '0600'
-  register: temp_file
 
 - name: "preflight | expand clusters using shell script"
   ansible.builtin.shell: |
@@ -13,7 +18,7 @@
     import json
     import sys
 
-    with open('{{ temp_file.dest }}', 'r') as f:
+    with open('{{ temp_file.path }}', 'r') as f:
         clusters = json.load(f)
 
     result = []
@@ -34,7 +39,7 @@
 
 - name: "preflight | cleanup temp file"
   ansible.builtin.file:
-    path: "{{ temp_file.dest }}"
+    path: "{{ temp_file.path }}"
     state: absent
 
 - name: "preflight | parse and set expanded clusters"

@@ -1,16 +1,16 @@
 Use the following information to access your cluster:
 
-clusterName is: {{ name }}
+clusterName is: {{ cluster_name }}
 
-infraID: {{ name }}
+infraID: {{ cluster_name }}
 
-Region: {{ region }}
+Region: {{ cluster_region }}
 
-OpenShift Console: https://console-openshift-console.apps.{{ name }}.{{ domain }}
+OpenShift Console: https://console-openshift-console.apps.{{ cluster_name }}.{{ domain }}
 
 Username and Password for login: kubeadmin/{{ kubeadmin_secret }}
 
-The kubeconfig is on the local filesystem: export KUBECONFIG={{ deployment_dir }}/{{ name }}/kubeconfig
+The kubeconfig is on the local filesystem: export KUBECONFIG={{ deployment_dir }}/{{ cluster_name }}/kubeconfig
 
 
 
