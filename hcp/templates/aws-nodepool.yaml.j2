@@ -19,7 +19,7 @@ spec:
   nodeVolumeDetachTimeout: 0s
 {% if taints is defined and taints | length > 0 %}
   taints:
-{{ taints | to_nice_yaml(indent=2) | indent(4, first=True) }}
+{{ (taints | from_yaml if taints is string else taints) | to_nice_yaml(indent=2) | indent(4, first=True) }}
 {% endif %}
   platform:
     aws:
